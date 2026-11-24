@@ -15,9 +15,9 @@ describe("fixture library", () => {
     const { files } = library;
 
     await expect(stat(files.video)).resolves.toBeTruthy();
-    await expect(stat(files.nfo)).resolves.toBeTruthy();
-    await expect(stat(files.srt)).resolves.toBeTruthy();
-    await expect(stat(files.poster)).resolves.toBeTruthy();
+    await expect(stat(files.nfo!)).resolves.toBeTruthy();
+    await expect(stat(files.srt!)).resolves.toBeTruthy();
+    await expect(stat(files.poster!)).resolves.toBeTruthy();
   });
 
   it("writes a subtitle that can be read back", async () => {
