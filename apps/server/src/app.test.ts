@@ -22,3 +22,10 @@ it("GET /api/health returns ok and the configured movie root", async () => {
     movieRoot: "/tmp/mobile-cinema-test-movies",
   });
 });
+
+it("GET /api/movies answers with the movies of the catalog", async () => {
+  const res = await app.inject({ method: "GET", url: "/api/movies" });
+  expect(res.statusCode).toBe(200);
+  expect(Array.isArray(res.json().items)).toBe(true);
+  expect(typeof res.json().total).toBe("number");
+});
