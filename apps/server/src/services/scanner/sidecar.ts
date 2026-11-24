@@ -1,5 +1,5 @@
 import { readFile, stat } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { extname } from "node:path";
 
 /** Poster extensions we look for next to a video, in priority order. */
 export const POSTER_EXTENSIONS = [".jpg", ".png", ".webp"] as const;
