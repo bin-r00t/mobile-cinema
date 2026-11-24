@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import type { FastifyInstance } from "fastify";
-import type { Config } from "./config.js";
-import { healthRoutes } from "./routes/health.js";
+import type { Config } from "./config.ts";
+import { healthRoutes } from "./routes/health.ts";
 
 export async function buildApp(config: Config): Promise<FastifyInstance> {
   const app = Fastify({

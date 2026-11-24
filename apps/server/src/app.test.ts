@@ -1,7 +1,6 @@
-import assert from "node:assert/strict";
-import { after, test } from "node:test";
-import { buildApp } from "./app.js";
-import type { Config } from "./config.js";
+import { afterAll, expect, it } from "vitest";
+import { buildApp } from "./app.ts";
+import type { Config } from "./config.ts";
 
 const config: Config = {
   HOST: "127.0.0.1",
@@ -13,12 +12,12 @@ const config: Config = {
 };
 
 const app = await buildApp(config);
-after(() => app.close());
+afterAll(() => app.close());
 
-test("GET /api/health returns ok and the configured movie root", async () => {
+it("GET /api/health returns ok and the configured movie root", async () => {
   const res = await app.inject({ method: "GET", url: "/api/health" });
-  assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.json(), {
+  expect(res.statusCode).toBe(200);
+  expect(res.json()).toEqual({
     status: "ok",
     movieRoot: "/tmp/mobile-cinema-test-movies",
   });
