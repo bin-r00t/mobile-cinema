@@ -132,7 +132,7 @@ export function parseTitle(filename: string): ParsedTitle {
     return isNoise ? " " : whole;
   });
 
-  working = working.replace(/[[\]()]/g, " ");
+  working = working.replace(/[\]()]/g, " ");
   working = working.replace(/\.(srt|ass|vtt|nfo|sub|idx)$/i, " ");
 
   // The release group is the last dot- or dash-separated token, e.g. "-GROUP".
