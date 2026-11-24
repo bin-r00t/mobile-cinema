@@ -1,11 +1,16 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import { App } from "./App";
+import "./styles/global.css";
 
-/**
- * Placeholder entry point. The real app shell and router are built in the
- * "Frontend scaffold" task.
- */
 const container = document.getElementById("root");
-if (container) {
-  createRoot(container).render(<StrictMode>Mobile Cinema</StrictMode>);
-}
+if (!container) throw new Error("missing #root element");
+
+createRoot(container).render(
+  <StrictMode>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </StrictMode>,
+);

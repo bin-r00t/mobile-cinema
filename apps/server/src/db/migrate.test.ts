@@ -2,15 +2,15 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { after, test } from "node:test";
+import { afterAll, expect, it } from "vitest";
 import Database from "better-sqlite3";
-import { migrate } from "./migrate.js";
+import { migrate } from "./migrate.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "mc-migrate-test-"));
 const dbPath = join(dir, "test.db");
 const db = new Database(dbPath);
 
-after(() => {
+afterAll(() => {
   db.close();
   rmSync(dir, { recursive: true, force: true });
 });
@@ -33,24 +33,26 @@ function tableNames(): string[] {
   ).map((row) => row.name);
 }
 
-test("first migrate run creates all four tables", () => {
+it("first migrate run creates all four tables", () => {
   const applied = migrate(dbPath);
-  assert.deepEqual(applied, ["001_init"]);
+  expect(applied).toEqual(["001_init"]);
   for (const table of EXPECTED_TABLES) {
-    assert.ok(tableNames().includes(table), `missing table ${table}`);
+    expect(tableNames(), `missing table ${table}`).toContain(table);
   }
 });
 
-test("second migrate run is idempotent", () => {
+it("second migrate run is idempotent", () => {
   const applied = migrate(dbPath);
-  assert.deepEqual(applied, []);
-  assert.deepEqual(tableNames().sort(), EXPECTED_TABLES.toSorted());
+  expect(applied).toEqual([]);
+  expect(tableNames().sort()).toEqual(EXPECTED_TABLES.toSorted());
 });
 
-test("foreign keys are enforced", () => {
+it("foreign keys are enforced", () => {
   assert.throws(() =>
     db
-      .prepare("INSERT INTO subtitle_tracks (media_item_id, path, format) VALUES (999, 'x.srt', 'srt')")
+      .prepare(
+        "INSERT INTO subtitle_tracks (media_item_id, path, format) VALUES (999, 'x.srt', 'srt')",
+      )
       .run(),
   );
 });
