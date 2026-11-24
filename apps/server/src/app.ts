@@ -4,6 +4,7 @@ import type { Config } from "./config.ts";
 import { createDb } from "./db/client.ts";
 import { migrate } from "./db/migrate.ts";
 import { healthRoutes } from "./routes/health.ts";
+import { movieRoutes } from "./routes/movies.ts";
 import { scanLibrary } from "./services/scanner/index.ts";
 import { LibraryWatcher } from "./services/watcher.ts";
 
@@ -17,6 +18,11 @@ export async function buildApp(config: Config): Promise<FastifyInstance> {
   // The catalog the scans keep in step with the files on disk.
   migrate(config.DB_PATH);
   const db = createDb(config.DB_PATH);
+  await app.register(movieRoutes, {
+    db,
+    cacheDir: config.CACHE_DIR,
+    movieRoot: config.MOVIE_ROOT,
+  });
 
   // The library changes on disk without asking the server first: the
   // watcher rescans it a quiet moment after anything is added, changed
