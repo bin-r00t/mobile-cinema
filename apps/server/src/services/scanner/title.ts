@@ -122,7 +122,7 @@ export function parseTitle(filename: string): ParsedTitle {
   const year = yearMatch ? Number(yearMatch[1]) : null;
 
   // Drop bracketed groups that only carry noise, keep the meaningful ones.
-  working = working.replace(/[\[{]([^\]}]*)[\]}]/g, (whole, inner: string) => {
+  working = working.replace(/[[{]([^\]}]*)[\]}]/g, (whole, inner: string) => {
     const words = inner
       .split(/[\s._]+/)
       .filter(Boolean)
