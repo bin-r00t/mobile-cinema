@@ -8,6 +8,8 @@ const FAKE_VIDEO = Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70])
 export interface FixtureFiles {
   /** Absolute path of the video file. */
   video: string;
+  /** Absolute path of the video inside the "Old Film (2019)" folder. */
+  nestedVideo: string;
   /** Absolute path of the NFO sidecar, when the fixture has one. */
   nfo?: string;
   /** Absolute path of the English subtitle, when the fixture has one. */
@@ -109,7 +111,7 @@ export async function createFixtureLibrary(
     root,
     moviesDir,
     ignoredDirs,
-    files: { video, nfo, srt, poster, ass: nestedAss },
+    files: { video, nestedVideo, nfo, srt, poster, ass: nestedAss },
     async cleanup() {
       await rm(root, { recursive: true, force: true });
     },
