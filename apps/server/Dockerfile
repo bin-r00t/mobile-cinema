@@ -42,8 +42,10 @@ ENV NODE_ENV=production \
     FFMPEG_PATH=/usr/bin/ffmpeg \
     LOG_LEVEL=info
 
+# The dependencies of the workspace are hoisted: npm puts them in the
+# node_modules of the root, and the server finds them by walking up from
+# apps/server. There is no node_modules inside the workspace itself.
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/server/node_modules ./apps/server/node_modules
 COPY package.json ./
 COPY tsconfig.base.json ./
 COPY apps/server ./apps/server
