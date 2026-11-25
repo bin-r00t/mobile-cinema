@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { Player, type PlayerHandle } from "../components/Player";
+import type { SubtitleTrack } from "../components/ScriptTab";
 import { formatDuration, formatYear } from "../lib/format";
 import "../styles/theater.css";
 
@@ -19,6 +20,7 @@ interface TheaterMovie {
   sizeBytes: number | null;
   streamUrl: string | null;
   hlsUrl: string | null;
+  subtitles: SubtitleTrack[];
 }
 
 type TheaterState =
@@ -48,6 +50,7 @@ export function Theater() {
             title: movie.title,
             streamUrl: movie.streamUrl,
             hlsUrl: movie.hlsUrl,
+            subtitles: movie.subtitles,
           }
         : null,
     [movie],
@@ -159,6 +162,7 @@ export function Theater() {
             title: "",
             streamUrl: null,
             hlsUrl: null,
+            subtitles: [],
           }}
           onExit={() => navigate("/")}
         />
