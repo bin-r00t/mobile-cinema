@@ -4,6 +4,7 @@ import type { Config } from "./config.ts";
 import { createDb } from "./db/client.ts";
 import { migrate } from "./db/migrate.ts";
 import { healthRoutes } from "./routes/health.ts";
+import { moviesRoutes } from "./routes/movies.ts";
 import { scanRoutes } from "./routes/scan.ts";
 import { ScanRunner } from "./services/scan/runner.ts";
 import { scanLibrary } from "./services/scanner/index.ts";
@@ -19,6 +20,9 @@ export async function buildApp(config: Config): Promise<FastifyInstance> {
   // The catalog the scans keep in step with the files on disk.
   migrate(config.DB_PATH);
   const db = createDb(config.DB_PATH);
+
+  // The library the player browses.
+  await app.register(moviesRoutes, { db, movieRoot: config.MOVIE_ROOT });
 
   // The scan API: a scan on demand, the progress of the run that is going
   // and the runs it left behind.
