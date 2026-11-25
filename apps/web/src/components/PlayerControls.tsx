@@ -2,6 +2,7 @@
  * The controls of the player: the play and pause button, the seek bar with
  * the buffered ranges, the volume and the quality of the stream.
  */
+import type { ReactNode } from "react";
 
 /** One rendition of an HLS stream. */
 export interface QualityLevel {
@@ -48,6 +49,8 @@ export interface PlayerControlsProps {
   onQualityChange: (level: number) => void;
   /** Leaves the player. */
   onExit?: () => void;
+  /** Extra buttons of the bar, sat next to the quality of the stream. */
+  children?: ReactNode;
 }
 
 /** The time of the movie as "1:02:03" or "2:03". */
@@ -87,6 +90,7 @@ export function PlayerControls({
   onToggleMute,
   onQualityChange,
   onExit,
+  children,
 }: PlayerControlsProps) {
   const span = duration > 0 ? duration : 0;
   const percent = (value: number) => (span > 0 ? Math.min(100, (value / span) * 100) : 0);
@@ -170,6 +174,8 @@ export function PlayerControls({
           ))}
         </select>
       )}
+
+      {children}
 
       {onExit && (
         <button

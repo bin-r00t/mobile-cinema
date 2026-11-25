@@ -15,6 +15,9 @@ import {
   type BufferedRange,
   type QualityLevel,
 } from "./PlayerControls";
+import type { SubtitleTrack } from "./ScriptTab";
+import { SubtitleOverlay, type SubtitleSize } from "./SubtitleOverlay";
+import { SubtitleSettings } from "./SubtitleSettings";
 import "../styles/player.css";
 
 /** The movie the player shows. */
@@ -27,7 +30,12 @@ export interface PlayerMedia {
   streamUrl: string | null;
   /** The HLS master playlist, or null when there is none yet. */
   hlsUrl: string | null;
+  /** The subtitle tracks of the movie, empty when it has none. */
+  subtitles?: SubtitleTrack[];
 }
+
+/** The subtitle tracks of a movie that has none, always the same empty list. */
+const NO_SUBTITLES: SubtitleTrack[] = [];
 
 /** What the caller of the player can do with it. */
 export interface PlayerHandle {
@@ -100,6 +108,24 @@ export function Player({ media, onExit, ref }: PlayerProps) {
   const mediaId = media.id;
   const streamUrl = media.streamUrl;
   const hlsUrl = media.hlsUrl;
+  const subtitleTracks = media.subtitles ?? NO_SUBTITLES;
+
+  const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
+  const [subtitleTrackId, setSubtitleTrackId] = useState<number | null>(null);
+  const [subtitleSize, setSubtitleSize] = useState<SubtitleSize>("medium");
+  const [subtitleOffsetMs, setSubtitleOffsetMs] = useState(0);
+
+  // Another movie brings its own subtitles: the primary track of the movie
+  // is picked, and the timing goes back to the file.
+  useEffect(() => {
+    const defaultTrack =
+      subtitleTracks.find((track) => track.isPrimary && track.vttUrl !== null) ??
+      subtitleTracks.find((track) => track.vttUrl !== null) ??
+      null;
+    setSubtitlesEnabled(defaultTrack !== null);
+    setSubtitleTrackId(defaultTrack ? defaultTrack.id : null);
+    setSubtitleOffsetMs(0);
+  }, [subtitleTracks]);
 
   /** Puts the HLS stream of a movie on the video element. */
   const attachHls = useCallback((url: string) => {
@@ -363,6 +389,14 @@ export function Player({ media, onExit, ref }: PlayerProps) {
     setCurrentLevel(level);
   }, []);
 
+  // The track that is on the screen. A track without a WebVTT file is never
+  // picked, and the subtitles that are turned off are no track at all.
+  const selectedSubtitleTrack = subtitlesEnabled
+    ? subtitleTracks.find(
+        (track) => track.id === subtitleTrackId && track.vttUrl !== null,
+      ) ?? null
+    : null;
+
   return (
     <div className="player">
       <video
@@ -391,6 +425,13 @@ export function Player({ media, onExit, ref }: PlayerProps) {
         </p>
       )}
 
+      <SubtitleOverlay
+        track={selectedSubtitleTrack}
+        currentTime={currentTime}
+        offsetMs={subtitleOffsetMs}
+        size={subtitleSize}
+      />
+
       <PlayerControls
         paused={paused}
         currentTime={currentTime}
@@ -406,7 +447,21 @@ export function Player({ media, onExit, ref }: PlayerProps) {
         onToggleMute={toggleMute}
         onQualityChange={changeQuality}
         onExit={onExit}
-      />
+      >
+        {subtitleTracks.length > 0 && (
+          <SubtitleSettings
+            tracks={subtitleTracks}
+            enabled={subtitlesEnabled}
+            trackId={subtitleTrackId}
+            size={subtitleSize}
+            offsetMs={subtitleOffsetMs}
+            onEnabledChange={setSubtitlesEnabled}
+            onTrackChange={setSubtitleTrackId}
+            onSizeChange={setSubtitleSize}
+            onOffsetChange={setSubtitleOffsetMs}
+          />
+        )}
+      </PlayerControls>
     </div>
   );
 }

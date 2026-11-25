@@ -140,6 +140,134 @@
   padding: 0.2rem 0.4rem;
 }
 
+/*
+ * The subtitles: the cue that is spoken now, drawn over the movie, and the
+ * panel of settings behind the buttons of the bar.
+ */
+
+.subtitle-overlay {
+  position: absolute;
+  bottom: 4.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 90%;
+  margin: 0;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* The dark plate and the outline keep the text readable over a bright
+   scene. */
+.subtitle-overlay-text {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  white-space: pre-line;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.7);
+}
+
+.subtitle-overlay[data-size="small"] .subtitle-overlay-text {
+  font-size: 1rem;
+}
+
+.subtitle-overlay[data-size="medium"] .subtitle-overlay-text {
+  font-size: 1.4rem;
+}
+
+.subtitle-overlay[data-size="large"] .subtitle-overlay-text {
+  font-size: 1.9rem;
+}
+
+.subtitle-settings {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.subtitle-settings-cc[aria-pressed="false"] {
+  color: var(--muted);
+}
+
+.subtitle-settings-panel {
+  position: absolute;
+  bottom: calc(100% + 0.75rem);
+  right: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 15rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(10, 12, 18, 0.95);
+}
+
+.subtitle-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.subtitle-settings-label {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.subtitle-settings-select {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--fg);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.4rem;
+}
+
+.subtitle-settings-sizes,
+.subtitle-settings-timing {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.subtitle-settings-button {
+  border: none;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 0.3rem 0.4rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.subtitle-settings-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.subtitle-settings-button[aria-pressed="true"] {
+  background: var(--accent);
+  color: #fff;
+}
+
+.subtitle-settings-button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.subtitle-settings-value {
+  color: var(--fg);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  min-width: 3rem;
+  text-align: center;
+}
+
 @media (max-width: 600px) {
   .player-volume {
     display: none;
