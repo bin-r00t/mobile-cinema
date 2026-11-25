@@ -7,6 +7,7 @@ import { healthRoutes } from "./routes/health.ts";
 import { moviesRoutes } from "./routes/movies.ts";
 import { scanRoutes } from "./routes/scan.ts";
 import { streamRoutes } from "./routes/stream.ts";
+import { subtitleRoutes } from "./routes/subtitles.ts";
 import { ScanRunner } from "./services/scan/runner.ts";
 import { scanLibrary } from "./services/scanner/index.ts";
 import { LibraryWatcher } from "./services/watcher.ts";
@@ -30,6 +31,13 @@ export async function buildApp(config: Config): Promise<FastifyInstance> {
 
   // Progressive streaming for the containers a browser plays directly.
   await app.register(streamRoutes, { movieRoot: config.MOVIE_ROOT, db });
+
+  // The subtitles: the WebVTT the player plays and the script it shows.
+  await app.register(subtitleRoutes, {
+    db,
+    movieRoot: config.MOVIE_ROOT,
+    cacheDir: config.CACHE_DIR,
+  });
 
   // The scan API: a scan on demand, the progress of the run that is going
   // and the runs it left behind.
