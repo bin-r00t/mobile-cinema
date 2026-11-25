@@ -49,22 +49,18 @@
   );
 }
 
-.theater-video {
+/* The player fills the screen, but it is only shown once the movie starts. */
+.theater-player {
   position: absolute;
   inset: 0;
   z-index: 2;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #000;
-  opacity: 0;
-  pointer-events: none;
+  opacity: 1;
   transition: opacity 400ms ease;
 }
 
-.theater-video-playing {
-  opacity: 1;
-  pointer-events: auto;
+.theater-player-hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* The way out that stays on the screen while the movie plays. */
@@ -152,11 +148,6 @@
   padding: 0.7rem 1.2rem;
 }
 
-.theater-error {
-  margin: 0;
-  color: #ffb4ab;
-}
-
 /* The states that have no movie in them: loading and failed. */
 .theater-message {
   display: grid;
@@ -197,7 +188,7 @@
     animation: none;
   }
 
-  .theater-video {
+  .theater-player {
     transition: none;
   }
 }
