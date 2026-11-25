@@ -81,6 +81,8 @@ export function Player({ media, onExit, ref }: PlayerProps) {
   const hlsRef = useRef<Hls | null>(null);
   const prepareRef = useRef<AbortController | null>(null);
   const lastSaveRef = useRef(0);
+  /** Whether the movie has already been asked for as an HLS stream. */
+  const hlsAttemptedRef = useRef(false);
 
   const [paused, setPaused] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
@@ -141,6 +143,36 @@ export function Player({ media, onExit, ref }: PlayerProps) {
     setError("This browser cannot play the HLS stream of this movie.");
   }, []);
 
+  /**
+   * Serves the movie through HLS.
+   *
+   * The playlist is only written into the cache once the transcode is done,
+   * so it is asked for until the server hands it out. Only a 200 is a
+   * playlist; the 202 of the server means "not ready yet".
+   */
+  const prepareHls = useCallback(
+    async (movieId: number) => {
+      prepareRef.current?.abort();
+      const controller = new AbortController();
+      prepareRef.current = controller;
+      setPreparing(true);
+      setError(null);
+
+      const ready = await waitForPlaylist(movieId, controller.signal).catch(
+        () => false,
+      );
+      if (controller.signal.aborted) return;
+
+      setPreparing(false);
+      if (!ready) {
+        setError("The stream of this movie could not be prepared.");
+        return;
+      }
+      attachHls(`/api/hls/${movieId}/master.m3u8`);
+    },
+    [attachHls],
+  );
+
   // The source of the movie. A movie that the browser cannot play
   // progressively is served through HLS, so the playlist is asked for then.
   useEffect(() => {
@@ -155,6 +187,9 @@ export function Player({ media, onExit, ref }: PlayerProps) {
     setLevels([]);
     setCurrentLevel(-1);
     setPreparing(false);
+    // Another movie may be played through HLS, so the attempt belongs to
+    // the movie that is on the screen.
+    hlsAttemptedRef.current = false;
 
     const source = selectPlaybackSource({ id: mediaId, streamUrl, hlsUrl });
     if (!source) {
@@ -163,7 +198,9 @@ export function Player({ media, onExit, ref }: PlayerProps) {
     }
 
     if (source.kind === "hls") {
-      attachHls(source.url);
+      // The playlist is not written into the cache until the transcode is
+      // done, so it is asked for until the server hands it out.
+      void prepareHls(mediaId);
       return () => controller.abort();
     }
 
@@ -173,7 +210,7 @@ export function Player({ media, onExit, ref }: PlayerProps) {
     return () => {
       controller.abort();
     };
-  }, [attachHls, hlsUrl, mediaId, streamUrl]);
+  }, [attachHls, hlsUrl, mediaId, prepareHls, streamUrl]);
 
   // The player is left behind when the page goes away.
   useEffect(
@@ -238,8 +275,6 @@ export function Player({ media, onExit, ref }: PlayerProps) {
    * HLS, so the playlist is asked for instead. The attempt is made once, so
    * a browser that cannot play it is told so instead of asking again.
    */
-  const hlsAttemptedRef = useRef(false);
-
   const fallBackToHls = useCallback(async () => {
     if (hlsAttemptedRef.current) {
       setError("This movie is served as HLS, and this browser cannot play it.");
@@ -247,26 +282,11 @@ export function Player({ media, onExit, ref }: PlayerProps) {
     }
     hlsAttemptedRef.current = true;
 
-    const controller = new AbortController();
-    prepareRef.current = controller;
-    setPreparing(true);
-    setError(null);
-
-    const ready = await waitForPlaylist(mediaId, controller.signal).catch(
-      () => false,
-    );
-    if (controller.signal.aborted) return;
-
-    setPreparing(false);
-    if (!ready) {
-      setError("The stream of this movie could not be prepared.");
-      return;
-    }
-    attachHls(`/api/hls/${mediaId}/master.m3u8`);
+    await prepareHls(mediaId);
     videoRef.current?.play().catch(() => {
       setError("The browser wants a click before it plays the movie.");
     });
-  }, [attachHls, mediaId]);
+  }, [mediaId, prepareHls]);
 
   const onVideoError = useCallback(() => {
     void fallBackToHls();
