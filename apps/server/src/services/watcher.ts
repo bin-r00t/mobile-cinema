@@ -26,8 +26,13 @@ export class LibraryWatcher {
   private watcher: FSWatcher | null = null;
   private timer: NodeJS.Timeout | null = null;
   private rescanInFlight: Promise<void> = Promise.resolve();
+  private readonly options: LibraryWatcherOptions;
 
-  constructor(private readonly options: LibraryWatcherOptions) {}
+  // The options are a plain field, not a parameter property: node runs this
+  // file as it is, and it cannot strip a parameter property away.
+  constructor(options: LibraryWatcherOptions) {
+    this.options = options;
+  }
 
   /** Starts watching. Does nothing when the watcher is already running. */
   async start(): Promise<void> {
