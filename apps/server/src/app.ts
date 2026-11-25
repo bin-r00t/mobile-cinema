@@ -21,9 +21,12 @@ export async function buildApp(config: Config): Promise<FastifyInstance> {
   // The catalog the scans keep in step with the files on disk.
   migrate(config.DB_PATH);
   const db = createDb(config.DB_PATH);
-
-  // The library the player browses.
-  await app.register(moviesRoutes, { db, movieRoot: config.MOVIE_ROOT });
+  // The library the player browses: the list, the detail and the posters.
+  await app.register(moviesRoutes, {
+    db,
+    movieRoot: config.MOVIE_ROOT,
+    cacheDir: config.CACHE_DIR,
+  });
 
   // Progressive streaming for the containers a browser plays directly.
   await app.register(streamRoutes, { movieRoot: config.MOVIE_ROOT, db });

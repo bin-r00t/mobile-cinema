@@ -1,19 +1,27 @@
 /**
- * The movies of the library: a searchable, sortable and paged list.
+ * The movies of the library: a searchable, sortable and paged list, and the
+ * detail of a single movie.
  *
  * The list is what the library page of the player shows: a grid of posters
  * that can be searched by title, sorted and paged. The total count tells the
  * page how many movies there are in total, so it can show a pager.
+ *
+ * The detail route returns the catalog row of a movie, decorated with the
+ * URLs the player will call next: the poster, the subtitle tracks as VTT,
+ * and the endpoints that stream the file itself. It never opens a file —
+ * that is the job of the streaming routes — but it does check that the
+ * file the catalog knows about is really servable, because a playback
+ * mode advertised here must be one the player can actually use.
  */
-import { readFile } from "node:fs/promises";
-import { extname } from "node:path";
+import { readFile, realpath, stat } from "node:fs/promises";
+import { extname, join, resolve, sep } from "node:path";
 
 import type { FastifyInstance } from "fastify";
 import { and, asc, count, desc, eq, sql, type SQL } from "drizzle-orm";
 import { z } from "zod";
 
 import type { Db } from "../db/client.ts";
-import { mediaItems } from "../db/schema.ts";
+import { mediaItems, subtitleTracks } from "../db/schema.ts";
 import { PathSafetyError, resolveInsideRoot } from "../services/pathSafety.ts";
 
 export interface MoviesRouteOptions {
@@ -21,6 +29,8 @@ export interface MoviesRouteOptions {
   db: Db;
   /** The directory that holds the movies — the equivalent of MOVIE_ROOT. */
   movieRoot: string;
+  /** Where the derived files live (VTT, HLS playlists). */
+  cacheDir: string;
 }
 
 /** How much of the description the list shows. */
@@ -73,11 +83,43 @@ function snippet(text: string | null): string | null {
   return `${trimmed.slice(0, DESCRIPTION_SNIPPET_LENGTH).trimEnd()}…`;
 }
 
+/**
+ * True when `candidate` lies strictly inside `root` (the root itself
+ * does not count).
+ */
+function isInside(root: string, candidate: string): boolean {
+  if (candidate === root) return false;
+  const prefix = root.endsWith(sep) ? root : `${root}${sep}`;
+  return candidate.startsWith(prefix);
+}
+
+/**
+ * True when the file exists as a real file inside the movie root —
+ * a symlink that escapes the root does not count.
+ */
+async function isServable(root: string, path: string): Promise<boolean> {
+  try {
+    const rootAbs = root.endsWith(sep) ? root.slice(0, -1) : root;
+    // resolve, not join: a catalog path that is already absolute
+    // replaces the root instead of being glued onto it.
+    const resolved = resolve(rootAbs, path);
+    if (!isInside(rootAbs, resolved)) return false;
+    const [rootReal, fileReal, info] = await Promise.all([
+      realpath(rootAbs),
+      realpath(resolved),
+      stat(resolved),
+    ]);
+    return info.isFile() && isInside(rootReal, fileReal);
+  } catch {
+    return false;
+  }
+}
+
 export async function moviesRoutes(
   app: FastifyInstance,
   opts: MoviesRouteOptions,
 ): Promise<void> {
-  const { db, movieRoot } = opts;
+  const { db, movieRoot, cacheDir } = opts;
 
   app.get("/api/movies", async (request, reply) => {
     const parsed = querySchema.safeParse(request.query);
@@ -148,6 +190,67 @@ export async function moviesRoutes(
       limit,
       offset,
     });
+  });
+
+  app.get<{ Params: { id: string } }>("/api/movies/:id", async (request, reply) => {
+    const id = Number(request.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return reply
+        .status(400)
+        .send(error("INVALID_ID", `${request.params.id} is not a movie id`));
+    }
+
+    const movie = db.select().from(mediaItems).where(eq(mediaItems.id, id)).get();
+    if (!movie) {
+      return reply
+        .status(404)
+        .send(error("MOVIE_NOT_FOUND", `The catalog has no movie with id ${id}`));
+    }
+
+    const tracks = db
+      .select()
+      .from(subtitleTracks)
+      .where(eq(subtitleTracks.mediaItemId, id))
+      .all();
+
+    // A playback mode is only advertised when the player can actually
+    // use it: progressive needs the file inside the root, HLS needs a
+    // playlist the pipeline has written into the cache.
+    const playbackModes: string[] = [];
+    if (await isServable(movieRoot, movie.path)) {
+      playbackModes.push("progressive");
+    }
+    try {
+      await stat(join(cacheDir, "hls", String(id), "master.m3u8"));
+      playbackModes.push("hls");
+    } catch {
+      // No playlist yet — progressive (if available) is the only mode.
+    }
+
+    return {
+      movie: {
+        id: movie.id,
+        title: movie.title,
+        year: movie.year,
+        description: movie.description,
+        posterUrl: movie.posterPath ? `/api/posters/${id}` : null,
+        durationMs: movie.durationMs,
+        width: movie.width,
+        height: movie.height,
+        videoCodec: movie.videoCodec,
+        container: movie.container,
+        sizeBytes: movie.sizeBytes,
+        streamUrl: playbackModes.includes("progressive") ? `/api/stream/${id}` : null,
+        hlsUrl: playbackModes.includes("hls") ? `/api/hls/${id}/master.m3u8` : null,
+        playbackModes,
+        subtitles: tracks.map((track) => ({
+          id: track.id,
+          language: track.language,
+          isPrimary: track.isPrimary,
+          vttUrl: track.vttPath ? `/api/subtitles/${track.id}.vtt` : null,
+        })),
+      },
+    };
   });
 
   /**
