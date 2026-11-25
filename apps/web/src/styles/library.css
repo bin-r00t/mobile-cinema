@@ -1,0 +1,211 @@
+/* The library page: the toolbar with the search box and the sort dropdown,
+   the grid of posters and the states around them. */
+
+.library-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.library-search {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.library-search-input,
+.library-sort-select {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #2a3040;
+  border-radius: 0.5rem;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.95rem;
+}
+
+.library-search-input::placeholder {
+  color: var(--muted);
+}
+
+.library-search-input:focus-visible,
+.library-sort-select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.library-sort {
+  flex: 0 0 auto;
+}
+
+.library-sort-select {
+  min-width: 10rem;
+  cursor: pointer;
+}
+
+.library-count {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+}
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 1rem;
+}
+
+.movie-card {
+  min-width: 0;
+}
+
+.movie-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.movie-card-poster {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: 0.6rem;
+  background: var(--surface);
+  box-shadow: 0 1px 6px rgb(0 0 0 / 45%);
+}
+
+.movie-card-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.movie-card-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  font-weight: 600;
+  color: #4a5266;
+  background: linear-gradient(160deg, #1c2130, #12161f);
+}
+
+.movie-card-title {
+  margin: 0.5rem 0 0.15rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.movie-card-meta {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  display: flex;
+  gap: 0.3rem;
+}
+
+.movie-card-sep {
+  opacity: 0.6;
+}
+
+.library-state {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  border: 1px dashed #2a3040;
+  border-radius: 0.75rem;
+}
+
+.library-state-title {
+  margin: 0 0 0.35rem;
+  font-weight: 600;
+}
+
+.library-button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.library-button:hover {
+  background: rgb(110 168 254 / 12%);
+}
+
+/* The placeholders of the loading state. */
+.skeleton-block,
+.skeleton-line {
+  background: linear-gradient(90deg, #1a1f2b 25%, #232937 50%, #1a1f2b 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-line {
+  height: 0.7rem;
+  margin-top: 0.55rem;
+  border-radius: 0.25rem;
+}
+
+.skeleton-line-wide {
+  width: 85%;
+}
+
+.skeleton-line-narrow {
+  width: 45%;
+  margin-top: 0.4rem;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-block,
+  .skeleton-line {
+    animation: none;
+  }
+}
+
+@media (max-width: 30rem) {
+  .library-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* In a column the flex basis would be the height, so the box is taken
+     out of the flexing and keeps its natural height. */
+  .library-search {
+    flex: 0 0 auto;
+  }
+
+  .library-sort-select {
+    width: 100%;
+  }
+
+  .library-grid {
+    grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+    gap: 0.75rem;
+  }
+
+  .movie-card-title {
+    font-size: 0.85rem;
+  }
+}
