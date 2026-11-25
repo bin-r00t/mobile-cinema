@@ -42,6 +42,18 @@ let db: Db;
 let movieId: number;
 let app: FastifyInstance;
 
+/**
+ * Collects the lines the server writes to its log, so a test can check
+ * what the operator sees.
+ */
+class LogCapture {
+  lines: string[] = [];
+
+  write(line: string): void {
+    this.lines.push(line);
+  }
+}
+
 /** Set when the transcode of the test movie is through. */
 let transcodeDone: Promise<void>;
 let transcodeStarted = false;
@@ -273,8 +285,57 @@ describe("GET /api/hls/:id/master.m3u8", () => {
 
     expect(second.statusCode).toBe(500);
     expect(second.json().error.code).toBe("TRANSCODE_FAILED");
-    expect(second.json().error.message).toContain("ffmpeg exploded");
+    expect(second.json().error.message).toBe("The movie could not be transcoded.");
 
     await failing.close();
+  });
+
+  it("keeps the detail of a failed transcode out of the answer and in the log", async () => {
+    const log = new LogCapture();
+    const failing = Fastify({ logger: { stream: log } });
+    await failing.register(hlsRoutes, {
+      db,
+      movieRoot: root,
+      cacheDir,
+      transcoder: async () => {
+        throw new Error("ffmpeg exploded: /tmp/secret/movie.mkv");
+      },
+      retryAfterSeconds: 1,
+    });
+
+    await failing.inject({
+      method: "GET",
+      url: `/api/hls/${movieId}/master.m3u8`,
+    });
+    await settle();
+    const res = await failing.inject({
+      method: "GET",
+      url: `/api/hls/${movieId}/master.m3u8`,
+    });
+
+    expect(res.statusCode).toBe(500);
+    // The stderr of ffmpeg and the paths of the machine stay in the log.
+    expect(res.body).not.toContain("ffmpeg exploded");
+    expect(res.body).not.toContain("/tmp/secret/movie.mkv");
+    expect(res.body).not.toContain(root);
+    expect(res.body).not.toContain(cacheDir);
+
+    await failing.close();
+
+    const written = log.lines.join("\n");
+    expect(written).toContain("ffmpeg exploded");
+    expect(written).toContain(String(movieId));
+  });
+
+  it("answers a movie the catalog does not know without a path", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/hls/9999/master.m3u8",
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error.code).toBe("NOT_FOUND");
+    expect(res.body).not.toContain(root);
+    expect(res.body).not.toContain(workDir);
   });
 });

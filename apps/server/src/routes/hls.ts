@@ -21,13 +21,16 @@ import { join } from "node:path";
 import type { FastifyInstance, FastifyReply } from "fastify";
 
 import {
-  HlsError,
   transcodeToHls,
   validHlsCache,
   type HlsCache,
   type TranscodeOptions,
 } from "../services/hls/transcode.ts";
-import { PathSafetyError, resolveInsideRoot } from "../services/pathSafety.ts";
+import {
+  PathSafetyError,
+  resolveInsideRoot,
+  type PathSafetyErrorCode,
+} from "../services/pathSafety.ts";
 
 /** The transcoder the route runs, unless another one is put in its place. */
 export type Transcoder = (
@@ -80,12 +83,39 @@ function errorBody(code: string, message: string) {
 }
 
 /**
- * The message of a failure, whether it is one of ours or a surprise.
+ * The message of a refusal of the path safety module.
+ *
+ * The messages of that module carry the path that was refused, and a path
+ * is the layout of the machine: it never goes into an answer. The detail
+ * stays in the log of the server.
  */
-function failureMessage(error: unknown): string {
-  if (error instanceof HlsError) return error.message;
-  if (error instanceof Error) return error.message;
-  return String(error);
+const PATH_SAFETY_MESSAGES: Readonly<Record<PathSafetyErrorCode, string>> = {
+  INVALID_ID: "The id is not a movie id.",
+  NOT_FOUND: "There is no such movie.",
+  OUTSIDE_ROOT: "There is no such movie.",
+};
+
+/**
+ * The answer of a refusal of the path safety module.
+ *
+ * The refusal is written down in the log of the server, with the id of the
+ * movie, and the client is answered with a message that says nothing about
+ * the machine.
+ */
+function pathSafetyAnswer(
+  app: FastifyInstance,
+  reply: FastifyReply,
+  error: PathSafetyError,
+  mediaItemId: number,
+): unknown {
+  app.log.warn(
+    { err: error, mediaItemId, code: error.code },
+    "a path of the library was refused",
+  );
+  const status = error.code === "INVALID_ID" ? 400 : 404;
+  return reply
+    .code(status)
+    .send(errorBody(error.code, PATH_SAFETY_MESSAGES[error.code]));
 }
 
 /**
@@ -204,17 +234,21 @@ export async function hlsRoutes(
 
   /**
    * The answer of a transcode that did not work out.
+   *
+   * The failure is written down in the log of the server, with the id of
+   * the movie: the stderr of ffmpeg, the command it ran and the paths it
+   * touched all belong to the machine, and they never reach the client.
    */
-  function transcodeFailed(reply: FastifyReply, error: unknown): unknown {
+  function transcodeFailed(
+    reply: FastifyReply,
+    mediaItemId: number,
+    error: unknown,
+  ): unknown {
+    app.log.error({ err: error, mediaItemId }, "the transcode of the movie failed");
     return reply
       .code(500)
       .header("retry-after", String(retryAfterSeconds))
-      .send(
-        errorBody(
-          "TRANSCODE_FAILED",
-          `The movie could not be transcoded: ${failureMessage(error)}`,
-        ),
-      );
+      .send(errorBody("TRANSCODE_FAILED", "The movie could not be transcoded."));
   }
 
   app.get<{ Params: { id: string } }>("/api/hls/:id/master.m3u8", async (request, reply) => {
@@ -230,14 +264,15 @@ export async function hlsRoutes(
       state = await cacheState(id);
     } catch (error) {
       if (error instanceof PathSafetyError) {
-        const status = error.code === "INVALID_ID" ? 400 : 404;
-        return reply.code(status).send(errorBody(error.code, error.message));
+        return pathSafetyAnswer(app, reply, error, id);
       }
       throw error;
     }
 
     if (state.state === "running") return notReady(reply, id);
-    if (state.state === "failed") return transcodeFailed(reply, state.error);
+    if (state.state === "failed") {
+      return transcodeFailed(reply, id, state.error);
+    }
 
     return sendFile(
       reply,
@@ -293,13 +328,14 @@ export async function hlsRoutes(
           state = await cacheState(id);
         } catch (err) {
           if (err instanceof PathSafetyError) {
-            const status = err.code === "INVALID_ID" ? 400 : 404;
-            return reply.code(status).send(errorBody(err.code, err.message));
+            return pathSafetyAnswer(app, reply, err, id);
           }
           throw err;
         }
 
-        if (state.state === "failed") return transcodeFailed(reply, state.error);
+        if (state.state === "failed") {
+          return transcodeFailed(reply, id, state.error);
+        }
         if (state.state === "ready") {
           // The cache is there, but not this file: the playlist points at
           // something that was never written.
