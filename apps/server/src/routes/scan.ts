@@ -17,10 +17,14 @@ export async function scanRoutes(
     return { runId: run.id, alreadyRunning };
   });
 
-  /** The run that is in flight, with its progress, or idle. */
+  /**
+   * The run that is in flight, with its progress, or the run that finished
+   * last when the runner is idle.
+   */
   app.get("/api/scan/status", async () => {
-    const run = opts.runner.activeRun();
-    return run ? { state: "running" as const, run } : { state: "idle" as const, run: null };
+    const active = opts.runner.activeRun();
+    if (active) return { state: "running" as const, run: active };
+    return { state: "idle" as const, run: opts.runner.lastRun() };
   });
 
   /** The most recent runs, with counts and an error summary. */
