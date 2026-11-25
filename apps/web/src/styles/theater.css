@@ -1,0 +1,203 @@
+/*
+ * Theater mode: the whole screen belongs to the movie.
+ *
+ * The page is fixed over the window, so it never scrolls and the browser
+ * chrome of the phone does not take a part of it away.
+ */
+
+.theater-page {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+  color: var(--fg);
+  animation: theater-fade-in 600ms ease both;
+}
+
+/* The backdrop: the poster, blurred and darkened behind everything else. */
+.theater-backdrop {
+  position: absolute;
+  inset: -6%;
+  z-index: 0;
+}
+
+.theater-backdrop img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(28px) saturate(120%);
+  transform: scale(1.05);
+  opacity: 0.6;
+}
+
+.theater-backdrop-fallback {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 50% 35%, #1d2432 0%, #05070b 70%);
+}
+
+/* The scrim: it darkens the backdrop so the text stays readable. */
+.theater-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    to top,
+    rgba(4, 5, 9, 0.96) 0%,
+    rgba(4, 5, 9, 0.72) 45%,
+    rgba(4, 5, 9, 0.88) 100%
+  );
+}
+
+.theater-video {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 400ms ease;
+}
+
+.theater-video-playing {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* The way out that stays on the screen while the movie plays. */
+.theater-exit-top {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 4;
+}
+
+/* The entrance: the title and the metadata over the backdrop. */
+.theater-overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: clamp(1.25rem, 5vw, 3.5rem);
+  padding-bottom: clamp(2rem, 8vh, 4rem);
+  animation: theater-rise-in 700ms ease both;
+  transition: opacity 400ms ease, visibility 400ms ease;
+}
+
+.theater-overlay-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.theater-title {
+  margin: 0;
+  font-size: clamp(2.1rem, 7vw, 4.2rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.7);
+}
+
+.theater-meta {
+  margin: 0;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.theater-description {
+  margin: 0;
+  max-width: 60ch;
+  line-height: 1.6;
+  color: #d7dce5;
+}
+
+.theater-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.theater-start {
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #0b0d12;
+  font: inherit;
+  font-weight: 600;
+  font-size: 1.05rem;
+  padding: 0.7rem 1.8rem;
+  cursor: pointer;
+}
+
+.theater-start:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.theater-exit {
+  display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--fg);
+  text-decoration: none;
+  padding: 0.7rem 1.2rem;
+}
+
+.theater-error {
+  margin: 0;
+  color: #ffb4ab;
+}
+
+/* The states that have no movie in them: loading and failed. */
+.theater-message {
+  display: grid;
+  place-content: center;
+  justify-items: start;
+  gap: 0.75rem;
+  padding: 2rem;
+}
+
+.theater-message h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+@keyframes theater-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes theater-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theater-page,
+  .theater-overlay {
+    animation: none;
+  }
+
+  .theater-video {
+    transition: none;
+  }
+}
