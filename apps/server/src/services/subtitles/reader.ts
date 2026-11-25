@@ -37,8 +37,12 @@ export type SubtitleUnavailableCode =
 export class SubtitleUnavailableError extends Error {
   readonly code: SubtitleUnavailableCode;
 
-  constructor(code: SubtitleUnavailableCode, message: string) {
-    super(message);
+  constructor(
+    code: SubtitleUnavailableCode,
+    message: string,
+    options?: { cause?: unknown },
+  ) {
+    super(message, options);
     this.name = "SubtitleUnavailableError";
     this.code = code;
   }
@@ -135,11 +139,13 @@ export async function loadTrackVtt(
   try {
     const path = await resolveInsideRoot(options.movieRoot, track.path);
     source = (await readFileNoFollow(path)) ?? "";
-  } catch {
-    throw new SubtitleUnavailableError(
-      "SUBTITLE_NOT_FOUND",
-      `The subtitle ${track.path} is gone`,
-    );
+  } catch (error) {
+    // The message says nothing about the file: the path of the subtitle is
+    // the layout of the machine. The error itself keeps the detail, and
+    // the route writes it down in the log.
+    throw new SubtitleUnavailableError("SUBTITLE_NOT_FOUND", "The subtitle is gone.", {
+      cause: error,
+    });
   }
 
   try {
@@ -148,7 +154,8 @@ export async function loadTrackVtt(
     if (error instanceof SubtitleParseError) {
       throw new SubtitleUnavailableError(
         "SUBTITLE_BROKEN",
-        `The subtitle ${track.path} holds nothing that can be played`,
+        "The subtitle holds nothing that can be played.",
+        { cause: error },
       );
     }
     throw error;
@@ -177,7 +184,10 @@ export function vttToText(vtt: string): string {
     // text of the script.
     if (timingIndex === -1) continue;
 
-    const text = lines.slice(timingIndex + 1).join("\n").trim();
+    const text = lines
+      .slice(timingIndex + 1)
+      .join("\n")
+      .trim();
     if (text.length > 0) texts.push(text);
   }
 

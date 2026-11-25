@@ -12,7 +12,7 @@
  * use by default, so the answer is never empty while the movie has
  * subtitles at all.
  */
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { asc, eq } from "drizzle-orm";
 
 import type { Db } from "../db/client.ts";
@@ -23,6 +23,7 @@ import {
   SubtitleUnavailableError,
   vttToText,
   type SubtitleTrackRow,
+  type SubtitleUnavailableCode,
 } from "../services/subtitles/reader.ts";
 
 export interface SubtitleRouteOptions {
@@ -39,6 +40,39 @@ const VTT_CONTENT_TYPE = "text/vtt; charset=utf-8";
 
 function error(code: string, message: string) {
   return { error: { code, message } };
+}
+
+/**
+ * The message of a refusal of the reader.
+ *
+ * The refusal of the reader carries the path of the subtitle file, and a
+ * path is the layout of the machine: it never goes into an answer. The
+ * detail stays in the log of the server.
+ */
+const SUBTITLE_MESSAGES: Readonly<Record<SubtitleUnavailableCode, string>> = {
+  SUBTITLE_NOT_FOUND: "The subtitle is gone.",
+  SUBTITLE_BROKEN: "The subtitle holds nothing that can be played.",
+};
+
+/**
+ * The answer of a subtitle that cannot be served.
+ *
+ * The refusal is written down in the log of the server, with the id of the
+ * track, the id of the movie and the file it was about, and the client is
+ * answered with a message that says nothing about the machine.
+ */
+function unavailableAnswer(
+  app: FastifyInstance,
+  reply: FastifyReply,
+  failure: SubtitleUnavailableError,
+  track: SubtitleTrackRow,
+  mediaItemId: number,
+): unknown {
+  app.log.warn(
+    { err: failure, trackId: track.id, mediaItemId, path: track.path },
+    "a subtitle could not be served",
+  );
+  return reply.status(404).send(error(failure.code, SUBTITLE_MESSAGES[failure.code]));
 }
 
 /**
@@ -65,7 +99,9 @@ function findByLanguage(
  * The track the player uses by default: the one the scan marked as primary,
  * and the first one when nothing was marked.
  */
-function findPrimary(tracks: readonly SubtitleTrackRow[]): SubtitleTrackRow | undefined {
+function findPrimary(
+  tracks: readonly SubtitleTrackRow[],
+): SubtitleTrackRow | undefined {
   return tracks.find((track) => track.isPrimary) ?? tracks[0];
 }
 
@@ -98,7 +134,9 @@ export async function subtitleRoutes(
       if (!track) {
         return reply
           .status(404)
-          .send(error("SUBTITLE_NOT_FOUND", `The catalog has no subtitle with id ${id}`));
+          .send(
+            error("SUBTITLE_NOT_FOUND", `The catalog has no subtitle with id ${id}`),
+          );
       }
 
       let vtt: string;
@@ -106,7 +144,7 @@ export async function subtitleRoutes(
         vtt = await loadTrackVtt(track, { movieRoot, cacheDir });
       } catch (err) {
         if (err instanceof SubtitleUnavailableError) {
-          return reply.status(404).send(error(err.code, err.message));
+          return unavailableAnswer(app, reply, err, track, track.mediaItemId);
         }
         throw err;
       }
@@ -168,7 +206,7 @@ export async function subtitleRoutes(
         vtt = await loadTrackVtt(track, { movieRoot, cacheDir });
       } catch (err) {
         if (err instanceof SubtitleUnavailableError) {
-          return reply.status(404).send(error(err.code, err.message));
+          return unavailableAnswer(app, reply, err, track, id);
         }
         throw err;
       }

@@ -175,6 +175,32 @@ describe("the subtitle routes", () => {
       });
       expect(res.statusCode).toBe(404);
       expect(res.json().error.code).toBe("SUBTITLE_NOT_FOUND");
+      // The answer says nothing about the machine: the path of the
+      // subtitle stays in the log of the server.
+      expect(res.json().error.message).toBe("The subtitle is gone.");
+      expect(res.body).not.toContain(movieRoot);
+      expect(res.body).not.toContain(workDir);
+    });
+
+    it("answers 404 without a path when the subtitle holds nothing playable", async () => {
+      await rm(join(cacheDir, "subtitles", "en.vtt"));
+      await writeFile(
+        join(movieRoot, "Movies", "Some Movie (2020).en.srt"),
+        "there is no cue in here",
+      );
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/subtitles/${englishTrackId}.vtt`,
+      });
+
+      expect(res.statusCode).toBe(404);
+      expect(res.json().error.code).toBe("SUBTITLE_BROKEN");
+      expect(res.json().error.message).toBe(
+        "The subtitle holds nothing that can be played.",
+      );
+      expect(res.body).not.toContain(movieRoot);
+      expect(res.body).not.toContain(workDir);
     });
 
     it("does not serve a converted file that lies outside the cache", async () => {
@@ -229,9 +255,7 @@ describe("the subtitle routes", () => {
       expect(body.trackId).toBe(englishTrackId);
       expect(body.language).toBe("en");
       expect(body.fallback).toBe(false);
-      expect(body.text).toBe(
-        "First line of the script.\nSecond line of the script.",
-      );
+      expect(body.text).toBe("First line of the script.\nSecond line of the script.");
     });
 
     it("returns the script of the language that is asked for", async () => {
@@ -297,6 +321,22 @@ describe("the subtitle routes", () => {
       });
       expect(res.statusCode).toBe(404);
       expect(res.json().error.code).toBe("MOVIE_NOT_FOUND");
+    });
+
+    it("answers 404 without a path when the subtitle of the movie is gone", async () => {
+      await rm(join(cacheDir, "subtitles", "en.vtt"));
+      await rm(join(movieRoot, "Movies", "Some Movie (2020).en.srt"));
+
+      const res = await app.inject({
+        method: "GET",
+        url: `/api/movies/${movieId}/script`,
+      });
+
+      expect(res.statusCode).toBe(404);
+      expect(res.json().error.code).toBe("SUBTITLE_NOT_FOUND");
+      expect(res.json().error.message).toBe("The subtitle is gone.");
+      expect(res.body).not.toContain(movieRoot);
+      expect(res.body).not.toContain(workDir);
     });
 
     it("answers 400 for an id that is not a number", async () => {
