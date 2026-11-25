@@ -66,13 +66,6 @@ body {
   border: 0;
 }
 
-.theater {
-  min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  background: #000;
-}
-
 .detail-hero {
   display: grid;
   grid-template-columns: minmax(140px, 220px) 1fr;
