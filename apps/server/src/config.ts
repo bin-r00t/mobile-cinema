@@ -8,6 +8,8 @@ const envSchema = z.object({
   CACHE_DIR: z.string().min(1),
   /** The ffprobe binary the scan runs. Defaults to "ffprobe" from PATH. */
   FFPROBE_PATH: z.string().min(1).optional(),
+  /** The ffmpeg binary the HLS transcode runs. Defaults to "ffmpeg". */
+  FFMPEG_PATH: z.string().min(1).optional(),
   LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
     .default("info"),
