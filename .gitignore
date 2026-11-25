@@ -9,3 +9,8 @@ coverage/
 .vscode/
 *.tsbuildinfo
 .cache/
+
+# The library that scripts/make-sample-library.sh builds.
+sample-library/
+sample-library-catalog/
+sample-library-cache/
