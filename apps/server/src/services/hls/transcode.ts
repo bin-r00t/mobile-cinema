@@ -270,6 +270,38 @@ export async function transcodeToHls(
 }
 
 /**
+ * The cache of a movie, when it is still valid.
+ *
+ * The fingerprint of the file on disk decides: an unchanged file keeps the
+ * segments that are already there, a changed file invalidates them. This
+ * answers without transcoding anything, so a route can tell "the playlist
+ * is ready" from "the playlist has to be built first" cheaply.
+ *
+ * @throws {PathSafetyError} `INVALID_ID` when the id is not a catalog id,
+ * `NOT_FOUND` when the catalog does not know it, `OUTSIDE_ROOT` when its
+ * file does not live in the movie root.
+ */
+export async function validHlsCache(
+  options: TranscodeOptions,
+  mediaItemId: number,
+): Promise<HlsCache | null> {
+  const { db, movieRoot, cacheDir } = options;
+
+  const source = await resolveMediaPath({ db, movieRoot }, mediaItemId);
+  const info = await stat(source);
+  const stamp = fingerprint(source, info.size, info.mtimeMs);
+
+  const directory = join(cacheDir, "hls", String(mediaItemId));
+  const masterPath = join(directory, "master.m3u8");
+  const statePath = join(directory, "state.json");
+
+  const renditions = await readCache(directory, masterPath, statePath, stamp);
+  if (!renditions) return null;
+
+  return { mediaItemId, directory, masterPath, renditions, cached: true };
+}
+
+/**
  * The renditions of a cache that is still valid, or null when there is
  * nothing to reuse.
  */

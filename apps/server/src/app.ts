@@ -4,6 +4,7 @@ import type { Config } from "./config.ts";
 import { createDb } from "./db/client.ts";
 import { migrate } from "./db/migrate.ts";
 import { healthRoutes } from "./routes/health.ts";
+import { hlsRoutes } from "./routes/hls.ts";
 import { moviesRoutes } from "./routes/movies.ts";
 import { scanRoutes } from "./routes/scan.ts";
 import { streamRoutes } from "./routes/stream.ts";
@@ -31,6 +32,15 @@ export async function buildApp(config: Config): Promise<FastifyInstance> {
 
   // Progressive streaming for the containers a browser plays directly.
   await app.register(streamRoutes, { movieRoot: config.MOVIE_ROOT, db });
+
+  // HLS for the containers it cannot: the playlist and its segments, and
+  // a 202 with a hint to come back while the transcode is still running.
+  await app.register(hlsRoutes, {
+    db,
+    movieRoot: config.MOVIE_ROOT,
+    cacheDir: config.CACHE_DIR,
+    ffmpegPath: config.FFMPEG_PATH,
+  });
 
   // The subtitles: the WebVTT the player plays and the script it shows.
   await app.register(subtitleRoutes, {
