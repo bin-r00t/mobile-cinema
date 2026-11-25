@@ -24,6 +24,14 @@ import { walkMediaFiles, type MediaFile } from "./walk.ts";
 
 export type ScanStatus = "completed" | "failed";
 
+/** How far a scan has come along. */
+export interface ScanProgress {
+  /** The files found in the root. */
+  total: number;
+  /** The files that have been worked through. */
+  processed: number;
+}
+
 export interface ScanOptions {
   /** The catalog to update. */
   db: Db;
@@ -35,6 +43,13 @@ export interface ScanOptions {
   ffprobePath?: string;
   /** The languages the player prefers, best first. Defaults to English. */
   preferredLanguages?: readonly string[];
+  /**
+   * The row of `scan_runs` to fill in. A scan without one writes a row of
+   * its own; a scan with one leaves that row alone and only fills it in.
+   */
+  runId?: number;
+  /** Called after every file, so the caller can show how far the scan is. */
+  onProgress?: (progress: ScanProgress) => void;
 }
 
 export interface ScanItemResult {
@@ -189,12 +204,16 @@ export async function scanLibrary(options: ScanOptions): Promise<ScanSummary> {
   const errors: string[] = [];
 
   const startedAt = new Date();
-  const [run] = await db
-    .insert(scanRuns)
-    .values({ startedAt, status: "running" })
-    .returning({ id: scanRuns.id });
-
-  const runId = run!.id;
+  let runId: number;
+  if (options.runId !== undefined) {
+    runId = options.runId;
+  } else {
+    const [run] = await db
+      .insert(scanRuns)
+      .values({ startedAt, status: "running" })
+      .returning({ id: scanRuns.id });
+    runId = run!.id;
+  }
 
   try {
     const files = await walkMediaFiles(movieRoot);
@@ -207,6 +226,10 @@ export async function scanLibrary(options: ScanOptions): Promise<ScanSummary> {
         const message = error instanceof Error ? error.message : String(error);
         errors.push(`${file.path}: ${message}`);
       }
+      options.onProgress?.({
+        processed: prepared.length + errors.length,
+        total: files.length,
+      });
     }
 
     const summary = writeToCatalog(db, movieRoot, prepared, runId, errors);
