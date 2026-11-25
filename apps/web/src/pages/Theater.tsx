@@ -36,6 +36,23 @@ export function Theater() {
   const [phase, setPhase] = useState<Phase>("intro");
   const playerRef = useRef<PlayerHandle>(null);
 
+  // The media of the player is kept as it is, so that the player does not
+  // take the movie apart again on every render. The hooks are called
+  // before the movie is known, so that their order never changes.
+  const movie = state.status === "ready" ? state.movie : null;
+  const playerMedia = useMemo(
+    () =>
+      movie
+        ? {
+            id: movie.id,
+            title: movie.title,
+            streamUrl: movie.streamUrl,
+            hlsUrl: movie.hlsUrl,
+          }
+        : null,
+    [movie],
+  );
+
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
@@ -112,33 +129,22 @@ export function Theater() {
     );
   }
 
-  const { movie } = state;
-  // The media of the player is kept as it is, so that the player does not
-  // take the movie apart again on every render.
-  const playerMedia = useMemo(
-    () => ({
-      id: movie.id,
-      title: movie.title,
-      streamUrl: movie.streamUrl,
-      hlsUrl: movie.hlsUrl,
-    }),
-    [movie.id, movie.title, movie.streamUrl, movie.hlsUrl],
-  );
+  const { movie: readyMovie } = state;
   const metadata = [
-    formatYear(movie.year),
-    formatDuration(movie.durationMs),
-    movie.width !== null && movie.height !== null
-      ? `${movie.width}×${movie.height}`
+    formatYear(readyMovie.year),
+    formatDuration(readyMovie.durationMs),
+    readyMovie.width !== null && readyMovie.height !== null
+      ? `${readyMovie.width}×${readyMovie.height}`
       : null,
-    movie.videoCodec,
-    movie.container ? movie.container.toUpperCase() : null,
+    readyMovie.videoCodec,
+    readyMovie.container ? readyMovie.container.toUpperCase() : null,
   ].filter((part): part is string => part !== null);
 
   return (
     <section className="theater-page">
       <div className="theater-backdrop" aria-hidden="true">
-        {movie.posterUrl ? (
-          <img src={movie.posterUrl} alt="" />
+        {readyMovie.posterUrl ? (
+          <img src={readyMovie.posterUrl} alt="" />
         ) : (
           <div className="theater-backdrop-fallback" />
         )}
@@ -148,7 +154,12 @@ export function Theater() {
       <div className={`theater-player${phase === "intro" ? " theater-player-hidden" : ""}`}>
         <Player
           ref={playerRef}
-          media={playerMedia}
+          media={playerMedia ?? {
+            id: 0,
+            title: "",
+            streamUrl: null,
+            hlsUrl: null,
+          }}
           onExit={() => navigate("/")}
         />
       </div>
@@ -162,9 +173,11 @@ export function Theater() {
           phase === "playing" ? " theater-overlay-hidden" : ""
         }`}
       >
-        <h1 className="theater-title">{movie.title}</h1>
+        <h1 className="theater-title">{readyMovie.title}</h1>
         {metadata.length > 0 && <p className="theater-meta">{metadata.join(" · ")}</p>}
-        {movie.description && <p className="theater-description">{movie.description}</p>}
+        {readyMovie.description && (
+          <p className="theater-description">{readyMovie.description}</p>
+        )}
 
         <div className="theater-actions">
           <button type="button" className="theater-start" onClick={start}>

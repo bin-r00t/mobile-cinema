@@ -67,7 +67,9 @@ async function waitForPlaylist(
 ): Promise<boolean> {
   for (let attempt = 0; attempt < PLAYLIST_POLL_ATTEMPTS; attempt += 1) {
     const response = await fetch(`/api/hls/${movieId}/master.m3u8`, { signal });
-    if (response.ok) return true;
+    // "Not ready yet" is an answer of its own, and it is not a playlist:
+    // only the playlist itself (200) means the transcode is done.
+    if (response.status === 200) return true;
     if (response.status !== 202) return false;
     await new Promise((resolve) => setTimeout(resolve, PLAYLIST_POLL_MS));
   }
