@@ -76,6 +76,26 @@ export function clearPosition(movieId: number, storage = browserStorage()): void
 }
 
 /**
+ * The position a movie should be resumed at, given the position that was
+ * stored for it — no matter where the position came from.
+ *
+ * A position that is too early is no position at all: the movie has barely
+ * started. A movie that was watched to the end is not resumed: it is over.
+ * Null means "start at the beginning".
+ */
+export function pickResumePosition(
+  storedMs: number | null,
+  durationMs: number,
+): number | null {
+  if (storedMs === null) return null;
+  if (storedMs < MIN_POSITION_MS) return null;
+  if (Number.isFinite(durationMs) && durationMs > 0 && storedMs > durationMs - END_MARGIN_MS) {
+    return null;
+  }
+  return storedMs;
+}
+
+/**
  * The position the movie should be resumed at, in milliseconds.
  *
  * A movie that was watched to the end is not resumed: it is over.
@@ -85,11 +105,5 @@ export function resumePosition(
   durationMs: number,
   storage = browserStorage(),
 ): number | null {
-  const saved = readPosition(movieId, storage);
-  if (saved === null) return null;
-  if (saved < MIN_POSITION_MS) return null;
-  if (Number.isFinite(durationMs) && durationMs > 0 && saved > durationMs - END_MARGIN_MS) {
-    return null;
-  }
-  return saved;
+  return pickResumePosition(readPosition(movieId, storage), durationMs);
 }

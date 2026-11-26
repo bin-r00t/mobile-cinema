@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { ResumePrompt } from "../components/ResumePrompt";
 import { ScriptTab, type SubtitleTrack } from "../components/ScriptTab";
 
 interface Movie {
@@ -145,6 +146,8 @@ export function MovieDetail() {
               ▶ Play
             </Link>
           </p>
+
+          <ResumePrompt movieId={movie.id} durationMs={movie.durationMs} />
         </div>
       </div>
 

@@ -6,18 +6,33 @@ import {
   useRef,
   useState,
   type Ref,
+  type TouchEvent,
 } from "react";
 
+import { saveProgress } from "../api/progress";
 import { selectPlaybackSource } from "../lib/playback";
-import { clearPosition, resumePosition, writePosition } from "../lib/progress";
+import {
+  clearPosition,
+  pickResumePosition,
+  resumePosition,
+  writePosition,
+} from "../lib/progress";
 import {
   PlayerControls,
   type BufferedRange,
   type QualityLevel,
 } from "./PlayerControls";
 import type { SubtitleTrack } from "./ScriptTab";
+import { ShortcutsHelp } from "./ShortcutsHelp";
 import { SubtitleOverlay, type SubtitleSize } from "./SubtitleOverlay";
 import { SubtitleSettings } from "./SubtitleSettings";
+import {
+  clamp,
+  gestureIntent,
+  seekSeconds,
+  volumeDelta,
+} from "./playerGestures";
+import { playerKeyAction, type PlayerKeyAction } from "./playerKeys";
 import "../styles/player.css";
 
 /** The movie the player shows. */
@@ -48,6 +63,12 @@ export interface PlayerHandle {
 export interface PlayerProps {
   /** The movie to play. */
   media: PlayerMedia;
+  /**
+   * The position the movie was left at, as the server knows it. Null when
+   * the server has none; undefined when it was never asked. The position of
+   * the browser is the fallback for the times the server does not answer.
+   */
+  startAtMs?: number | null;
   /** Called when the user wants to leave the player. */
   onExit?: () => void;
   /** The ref of the player, so that the caller can start and stop it. */
@@ -84,13 +105,21 @@ async function waitForPlaylist(
   return false;
 }
 
-export function Player({ media, onExit, ref }: PlayerProps) {
+export function Player({ media, startAtMs, onExit, ref }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const prepareRef = useRef<AbortController | null>(null);
   const lastSaveRef = useRef(0);
   /** Whether the movie has already been asked for as an HLS stream. */
   const hlsAttemptedRef = useRef(false);
+  /** The swipe that is under the finger at the moment, or null. */
+  const gestureRef = useRef<{
+    x: number;
+    y: number;
+    intent: "seek" | "volume" | null;
+    volume: number;
+  } | null>(null);
 
   const [paused, setPaused] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
@@ -102,6 +131,10 @@ export function Player({ media, onExit, ref }: PlayerProps) {
   const [currentLevel, setCurrentLevel] = useState(-1);
   const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  /** What the swipe under the finger is doing, shown over the movie. */
+  const [gestureHint, setGestureHint] = useState<string | null>(null);
 
   // The fields of the movie are taken apart, so that a new movie and a new
   // object that holds the same movie are not two different things.
@@ -261,10 +294,17 @@ export function Player({ media, onExit, ref }: PlayerProps) {
     setBuffered(ranges);
   }, []);
 
+  /**
+   * Writes the position down: in the browser, so the movie resumes even
+   * when the server is out of reach, and on the server, so the detail page
+   * and the library know where the movie was left.
+   */
   const savePosition = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-    writePosition(mediaId, Math.round(video.currentTime * 1000));
+    const positionMs = Math.round(video.currentTime * 1000);
+    writePosition(mediaId, positionMs);
+    void saveProgress(mediaId, positionMs).catch(() => undefined);
   }, [mediaId]);
 
   const onTimeUpdate = useCallback(() => {
@@ -285,14 +325,16 @@ export function Player({ media, onExit, ref }: PlayerProps) {
     if (!video) return;
     setDuration(video.duration);
 
-    // The movie is picked up where it was left, unless it was watched to
-    // the end.
-    const saved = resumePosition(mediaId, video.duration * 1000);
+    // The movie is picked up where it was left: the server's word goes
+    // first, the browser's is the fallback, and a movie that was watched
+    // to the end starts over.
+    const stored = startAtMs !== undefined ? startAtMs : resumePosition(mediaId, 0);
+    const saved = pickResumePosition(stored, video.duration * 1000);
     if (saved !== null) {
       video.currentTime = saved / 1000;
       setCurrentTime(video.currentTime);
     }
-  }, [mediaId]);
+  }, [mediaId, startAtMs]);
 
   /**
    * The browser refused the source.
@@ -389,6 +431,167 @@ export function Player({ media, onExit, ref }: PlayerProps) {
     setCurrentLevel(level);
   }, []);
 
+  /** Fills the screen with the player, or hands the screen back. */
+  const toggleFullscreen = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+    } else {
+      container.requestFullscreen().catch(() => {
+        // The browser refused the screen: the theater keeps its window.
+      });
+    }
+  }, []);
+
+  // The player follows the screen into the fullscreen and out of it,
+  // however the way out was asked for.
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setFullscreen(document.fullscreenElement !== null);
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  /** Does what a key or a swipe has asked the player for. */
+  const applyAction = useCallback(
+    (action: PlayerKeyAction) => {
+      const video = videoRef.current;
+      if (!video) return;
+      switch (action.kind) {
+        case "toggle-play":
+          if (video.paused) play();
+          else pause();
+          return;
+        case "seek": {
+          const limit = duration > 0 ? duration : video.duration || 0;
+          seek(clamp(video.currentTime + action.seconds, 0, limit));
+          return;
+        }
+        case "volume":
+          changeVolume(clamp(volume + action.delta, 0, 1));
+          return;
+        case "toggle-mute":
+          toggleMute();
+          return;
+        case "toggle-fullscreen":
+          toggleFullscreen();
+          return;
+        case "exit":
+          onExit?.();
+          return;
+      }
+    },
+    [
+      changeVolume,
+      duration,
+      onExit,
+      pause,
+      play,
+      seek,
+      toggleFullscreen,
+      toggleMute,
+      volume,
+    ],
+  );
+
+  // The keys of the player are answered wherever the focus sits, except on
+  // the parts of the page that speak for themselves: a slider keeps its own
+  // arrows, a button keeps its own space bar.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest("input, select, textarea, button, a, [contenteditable]")
+      ) {
+        return;
+      }
+      const action = playerKeyAction(event);
+      if (!action) return;
+      event.preventDefault();
+      applyAction(action);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [applyAction]);
+
+  /** A swipe begins, unless it begins on the bar of controls. */
+  const onGestureStart = useCallback(
+    (event: TouchEvent) => {
+      if (event.touches.length !== 1) return;
+      const target = event.target;
+      if (
+        target instanceof Element &&
+        target.closest(".player-controls, .player-help")
+      ) {
+        return;
+      }
+      const touch = event.touches[0];
+      if (!touch) return;
+      gestureRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        intent: null,
+        volume,
+      };
+    },
+    [volume],
+  );
+
+  /** A swipe on the way: the volume follows at once, the seek is shown. */
+  const onGestureMove = useCallback(
+    (event: TouchEvent) => {
+      const gesture = gestureRef.current;
+      if (!gesture || event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - gesture.x;
+      const dy = touch.clientY - gesture.y;
+      const width = containerRef.current?.clientWidth ?? 0;
+      const height = containerRef.current?.clientHeight ?? 0;
+
+      if (gesture.intent === null) {
+        const intent = gestureIntent(dx, dy);
+        if (intent === null) return;
+        gesture.intent = intent;
+      }
+
+      if (gesture.intent === "volume") {
+        const next = clamp(gesture.volume + volumeDelta(dy, height), 0, 1);
+        changeVolume(next);
+        setGestureHint(`Volume ${Math.round(next * 100)} %`);
+        return;
+      }
+
+      const seconds = seekSeconds(dx, width);
+      setGestureHint(
+        `${seconds < 0 ? "Back" : "Ahead"} ${Math.abs(Math.round(seconds))} s`,
+      );
+    },
+    [changeVolume],
+  );
+
+  /** The swipe is over: a swipe along the screen seeks the movie. */
+  const onGestureEnd = useCallback(
+    (event: TouchEvent) => {
+      const gesture = gestureRef.current;
+      gestureRef.current = null;
+      setGestureHint(null);
+      if (!gesture || gesture.intent !== "seek") return;
+      const touch = event.changedTouches[0];
+      const video = videoRef.current;
+      const width = containerRef.current?.clientWidth ?? 0;
+      if (!touch || !video || width <= 0) return;
+      const seconds = seekSeconds(touch.clientX - gesture.x, width);
+      const limit = duration > 0 ? duration : video.duration || 0;
+      seek(clamp(video.currentTime + seconds, 0, limit));
+    },
+    [duration, seek],
+  );
+
   // The track that is on the screen. A track without a WebVTT file is never
   // picked, and the subtitles that are turned off are no track at all.
   const selectedSubtitleTrack = subtitlesEnabled
@@ -398,7 +601,17 @@ export function Player({ media, onExit, ref }: PlayerProps) {
     : null;
 
   return (
-    <div className="player">
+    <div
+      ref={containerRef}
+      className={`player${fullscreen ? " player-fullscreen" : ""}`}
+      onTouchStart={onGestureStart}
+      onTouchMove={onGestureMove}
+      onTouchEnd={onGestureEnd}
+      onTouchCancel={() => {
+        gestureRef.current = null;
+        setGestureHint(null);
+      }}
+    >
       <video
         ref={videoRef}
         className="player-video"
@@ -408,7 +621,12 @@ export function Player({ media, onExit, ref }: PlayerProps) {
         onTimeUpdate={onTimeUpdate}
         onProgress={readBuffered}
         onPlay={() => setPaused(false)}
-        onPause={() => setPaused(true)}
+        onPause={() => {
+          setPaused(true);
+          // The movie is stopped: the position it was left at is the one
+          // to come back to.
+          savePosition();
+        }}
         onVolumeChange={() => {
           const video = videoRef.current;
           if (!video) return;
@@ -431,6 +649,12 @@ export function Player({ media, onExit, ref }: PlayerProps) {
         offsetMs={subtitleOffsetMs}
         size={subtitleSize}
       />
+
+      {gestureHint && (
+        <p className="player-gesture-hint" aria-hidden="true">
+          {gestureHint}
+        </p>
+      )}
 
       <PlayerControls
         paused={paused}
@@ -461,7 +685,19 @@ export function Player({ media, onExit, ref }: PlayerProps) {
             onOffsetChange={setSubtitleOffsetMs}
           />
         )}
+
+        <button
+          type="button"
+          className="player-button"
+          aria-label="Shortcuts"
+          aria-expanded={helpOpen}
+          onClick={() => setHelpOpen((open) => !open)}
+        >
+          ?
+        </button>
       </PlayerControls>
+
+      <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }

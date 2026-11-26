@@ -6,6 +6,7 @@ import { migrate } from "./db/migrate.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { hlsRoutes } from "./routes/hls.ts";
 import { moviesRoutes } from "./routes/movies.ts";
+import { progressRoutes } from "./routes/progress.ts";
 import { scanRoutes } from "./routes/scan.ts";
 import { streamRoutes } from "./routes/stream.ts";
 import { subtitleRoutes } from "./routes/subtitles.ts";
@@ -48,6 +49,10 @@ export async function buildApp(config: Config): Promise<FastifyInstance> {
     movieRoot: config.MOVIE_ROOT,
     cacheDir: config.CACHE_DIR,
   });
+
+  // The playback progress: where the player left every movie off, so it
+  // can be picked up again from there.
+  await app.register(progressRoutes, { db });
 
   // The scan API: a scan on demand, the progress of the run that is going
   // and the runs it left behind.

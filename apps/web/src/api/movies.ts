@@ -75,7 +75,7 @@ function isErrorBody(
  * Reads the error body of a failed response. A body that is not JSON does not
  * hide the failure: the status is turned into a message of its own.
  */
-async function readError(response: Response): Promise<ApiError> {
+export async function readResponseError(response: Response): Promise<ApiError> {
   try {
     const body: unknown = await response.json();
     if (isErrorBody(body)) {
@@ -119,6 +119,6 @@ export async function listMovies(params: ListMoviesParams = {}): Promise<MovieLi
     signal: params.signal,
     headers: { accept: "application/json" },
   });
-  if (!response.ok) throw await readError(response);
+  if (!response.ok) throw await readResponseError(response);
   return (await response.json()) as MovieList;
 }
