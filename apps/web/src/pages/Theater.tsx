@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { Player, type PlayerHandle } from "../components/Player";
 import type { SubtitleTrack } from "../components/ScriptTab";
+import { getProgress } from "../api/progress";
 import { formatDuration, formatYear } from "../lib/format";
 import "../styles/theater.css";
 
@@ -36,6 +37,8 @@ export function Theater() {
   const navigate = useNavigate();
   const [state, setState] = useState<TheaterState>({ status: "loading" });
   const [phase, setPhase] = useState<Phase>("intro");
+  /** Where the movie was left the last time it played, as the server knows. */
+  const [startAtMs, setStartAtMs] = useState<number | null>(null);
   const playerRef = useRef<PlayerHandle>(null);
 
   // The media of the player is kept as it is, so that the player does not
@@ -59,6 +62,13 @@ export function Theater() {
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
+    setStartAtMs(null);
+
+    // The position is asked for next to the movie; a movie without one, or
+    // an answer that never comes, starts the movie at the beginning.
+    const progress = getProgress(Number(id))
+      .then((entry) => (entry === null ? null : entry.positionMs))
+      .catch(() => null);
 
     fetch(`/api/movies/${id}`)
       .then(async (response) => {
@@ -72,8 +82,10 @@ export function Theater() {
         }
         return response.json() as Promise<{ movie: TheaterMovie }>;
       })
-      .then(({ movie }) => {
-        if (!cancelled) setState({ status: "ready", movie });
+      .then(async ({ movie }) => {
+        if (cancelled) return;
+        setState({ status: "ready", movie });
+        setStartAtMs(await progress);
       })
       .catch((error: unknown) => {
         if (!cancelled) {
@@ -157,6 +169,7 @@ export function Theater() {
       <div className={`theater-player${phase === "intro" ? " theater-player-hidden" : ""}`}>
         <Player
           ref={playerRef}
+          startAtMs={startAtMs}
           media={playerMedia ?? {
             id: 0,
             title: "",

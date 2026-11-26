@@ -8,8 +8,14 @@ import {
   type Ref,
 } from "react";
 
+import { saveProgress } from "../api/progress";
 import { selectPlaybackSource } from "../lib/playback";
-import { clearPosition, resumePosition, writePosition } from "../lib/progress";
+import {
+  clearPosition,
+  pickResumePosition,
+  resumePosition,
+  writePosition,
+} from "../lib/progress";
 import {
   PlayerControls,
   type BufferedRange,
@@ -48,6 +54,12 @@ export interface PlayerHandle {
 export interface PlayerProps {
   /** The movie to play. */
   media: PlayerMedia;
+  /**
+   * The position the movie was left at, as the server knows it. Null when
+   * the server has none; undefined when it was never asked. The position of
+   * the browser is the fallback for the times the server does not answer.
+   */
+  startAtMs?: number | null;
   /** Called when the user wants to leave the player. */
   onExit?: () => void;
   /** The ref of the player, so that the caller can start and stop it. */
@@ -84,7 +96,7 @@ async function waitForPlaylist(
   return false;
 }
 
-export function Player({ media, onExit, ref }: PlayerProps) {
+export function Player({ media, startAtMs, onExit, ref }: PlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const prepareRef = useRef<AbortController | null>(null);
@@ -261,10 +273,17 @@ export function Player({ media, onExit, ref }: PlayerProps) {
     setBuffered(ranges);
   }, []);
 
+  /**
+   * Writes the position down: in the browser, so the movie resumes even
+   * when the server is out of reach, and on the server, so the detail page
+   * and the library know where the movie was left.
+   */
   const savePosition = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
-    writePosition(mediaId, Math.round(video.currentTime * 1000));
+    const positionMs = Math.round(video.currentTime * 1000);
+    writePosition(mediaId, positionMs);
+    void saveProgress(mediaId, positionMs).catch(() => undefined);
   }, [mediaId]);
 
   const onTimeUpdate = useCallback(() => {
@@ -285,14 +304,16 @@ export function Player({ media, onExit, ref }: PlayerProps) {
     if (!video) return;
     setDuration(video.duration);
 
-    // The movie is picked up where it was left, unless it was watched to
-    // the end.
-    const saved = resumePosition(mediaId, video.duration * 1000);
+    // The movie is picked up where it was left: the server's word goes
+    // first, the browser's is the fallback, and a movie that was watched
+    // to the end starts over.
+    const stored = startAtMs !== undefined ? startAtMs : resumePosition(mediaId, 0);
+    const saved = pickResumePosition(stored, video.duration * 1000);
     if (saved !== null) {
       video.currentTime = saved / 1000;
       setCurrentTime(video.currentTime);
     }
-  }, [mediaId]);
+  }, [mediaId, startAtMs]);
 
   /**
    * The browser refused the source.
@@ -408,7 +429,12 @@ export function Player({ media, onExit, ref }: PlayerProps) {
         onTimeUpdate={onTimeUpdate}
         onProgress={readBuffered}
         onPlay={() => setPaused(false)}
-        onPause={() => setPaused(true)}
+        onPause={() => {
+          setPaused(true);
+          // The movie is stopped: the position it was left at is the one
+          // to come back to.
+          savePosition();
+        }}
         onVolumeChange={() => {
           const video = videoRef.current;
           if (!video) return;
