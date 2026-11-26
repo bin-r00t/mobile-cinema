@@ -1,0 +1,28 @@
+/*
+ * The wide screens: from the desktop breakpoint the content stops
+ * stretching over the whole window and stands as a centered column, the
+ * padding breathes, and the titles grow with the room.
+ *
+ * The widths in the media queries are the breakpoints named by --bp-tablet,
+ * --bp-desktop and --bp-wide in global.css. A media query cannot read a
+ * custom property, so the literals here must be kept in step with them.
+ * The tablet and wide breakpoints have no rules of their own yet: the
+ * layouts of the pages belong to their own tasks.
+ *
+ * Nothing below 64rem (the desktop breakpoint) is touched: the phone and
+ * the tablet keep the layout they have.
+ */
+
+/* --bp-desktop: 64rem — the layout of the desktop begins here. */
+@media (min-width: 64rem) {
+  .app-main {
+    width: 100%;
+    max-width: var(--content-max);
+    margin-inline: auto;
+    padding: var(--space-5) var(--space-6);
+  }
+
+  .page h1 {
+    font-size: var(--font-size-title-desktop);
+  }
+}
