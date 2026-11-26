@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { InstallButton } from "./InstallButton";
 
 export function Layout() {
   return (
@@ -7,6 +8,7 @@ export function Layout() {
         <NavLink to="/" className="app-brand">
           Mobile Cinema
         </NavLink>
+        <InstallButton />
       </header>
       <main className="app-main">
         <Outlet />
