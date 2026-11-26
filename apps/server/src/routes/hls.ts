@@ -316,6 +316,13 @@ export async function hlsRoutes(
       } catch (error) {
         if (!(error instanceof PathSafetyError)) throw error;
         if (error.code === "OUTSIDE_ROOT") {
+          // The answer stays fixed, but the refusal is written down with
+          // the movie, like the refusals of the other routes are: a climb
+          // out of the cache is worth a line in the log.
+          app.log.warn(
+            { err: error, mediaItemId: id, code: error.code },
+            "a path of the library was refused",
+          );
           return reply
             .code(404)
             .send(errorBody("NOT_FOUND", "There is no such HLS file"));
