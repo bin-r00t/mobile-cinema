@@ -56,8 +56,12 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put("/index.html", copy));
+          // Only a good response refreshes the shell: an error page of the
+          // server must not become the fallback of the next offline visit.
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put("/index.html", copy));
+          }
           return response;
         })
         .catch(() => caches.match("/index.html")),
