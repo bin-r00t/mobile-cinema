@@ -91,14 +91,19 @@ export function Theater() {
   }, [id]);
 
   // The way out of the theater is the escape key as well as the link: the
-  // movie is the whole screen, and the keyboard is the fastest way out of it.
+  // movie is the whole screen, and the keyboard is the fastest way out of
+  // it. Once the movie is up, its player owns the keys, the escape among
+  // them — listening twice would walk out of the theater twice.
+  const ready = state.status === "ready";
   useEffect(() => {
+    if (ready) return;
+
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") navigate("/");
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [navigate]);
+  }, [navigate, ready]);
 
   /**
    * Starts the movie.
