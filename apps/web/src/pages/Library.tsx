@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import {
   listMovies,
@@ -6,6 +7,7 @@ import {
   type SortKey,
   type SortOrder,
 } from "../api/movies";
+import { listProgress, type RecentlyWatched } from "../api/progress";
 import { MovieCard } from "../components/MovieCard";
 import "../styles/library.css";
 
@@ -60,6 +62,19 @@ export function Library() {
   const [error, setError] = useState<string | null>(null);
   const [movies, setMovies] = useState<MovieListItem[]>([]);
   const [total, setTotal] = useState(0);
+  /** The movies that were played last, for the row above the grid. */
+  const [recent, setRecent] = useState<RecentlyWatched[]>([]);
+
+  // The recently watched row is asked for once, when the page opens: it
+  // belongs to the library as a whole, not to the search or the sort. A
+  // server that does not answer takes the row away, not the page.
+  useEffect(() => {
+    const controller = new AbortController();
+    listProgress(8, controller.signal)
+      .then((items) => setRecent(items))
+      .catch(() => setRecent([]));
+    return () => controller.abort();
+  }, []);
 
   // The number that tells the effect when to ask the server again.
   const requestId = useRef(0);
@@ -194,6 +209,37 @@ export function Library() {
               : "Scan a movie folder on the server to fill the library."}
           </p>
         </div>
+      ) : null}
+
+      {status === "ready" && !searching && recent.length > 0 ? (
+        <section className="recent-row" aria-label="Recently watched">
+          <h2 className="recent-row-title">Recently watched</h2>
+          <ul className="recent-row-list">
+            {recent.map((entry) => {
+              const fraction =
+                entry.movie.durationMs !== null && entry.movie.durationMs > 0
+                  ? Math.min(1, entry.positionMs / entry.movie.durationMs)
+                  : 0;
+              return (
+                <li key={entry.movieId} className="recent-row-item">
+                  <Link className="recent-card" to={`/movie/${entry.movieId}`}>
+                    <span className="recent-card-poster">
+                      {entry.movie.posterUrl ? (
+                        <img src={entry.movie.posterUrl} alt="" loading="lazy" />
+                      ) : null}
+                      <span
+                        className="recent-card-progress"
+                        style={{ width: `${Math.round(fraction * 100)}%` }}
+                        aria-hidden="true"
+                      />
+                    </span>
+                    <span className="recent-card-title">{entry.movie.title}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       ) : null}
 
       {status === "ready" && movies.length > 0 ? (
