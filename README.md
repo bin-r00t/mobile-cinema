@@ -18,18 +18,22 @@ npm install
 ./scripts/make-sample-library.sh /tmp/movies
 mkdir -p /tmp/movies-catalog /tmp/movies-cache
 MOVIE_ROOT=/tmp/movies DB_PATH=/tmp/movies-catalog/catalog.db \
-  CACHE_DIR=/tmp/movies-cache npm run dev
+  CACHE_DIR=/tmp/movies-cache npm run dev --workspace @mobile-cinema/server &
+npm run dev --workspace @mobile-cinema/web
 ```
 
-The server scans nothing on its own, so ask it to:
+The API answers on <http://127.0.0.1:3002>; the player prints the address
+it took (5173, when the port is free). The server scans nothing on its
+own, so ask it to:
 
 ```sh
 curl -X POST http://127.0.0.1:3002/api/scan
 ```
 
-Then open <http://localhost:5173> — three movies with posters, subtitles
-and a theater mode that plays them. Stop the server with Ctrl-C when you
-are done; nothing was written into the library.
+Then open the address of the player — three movies with posters,
+subtitles and a theater mode that plays them. Stop the player with
+Ctrl-C, then the API with `kill %1`, when you are done; nothing was
+written into the library.
 
 ## Running it
 
@@ -137,11 +141,14 @@ it is:
 ```sh
 npm install
 MOVIE_ROOT=/mnt/phone/Movies DB_PATH=./catalog.sqlite CACHE_DIR=./cache \
-  npm run dev
+  npm run dev --workspace @mobile-cinema/server &
+npm run dev --workspace @mobile-cinema/web
 ```
 
-`npm run dev` starts the API on port 3002 and the player on port 5173; the
-player calls the API through the proxy of the development server.
+The API listens on port 3002 and the player on the first free port from
+5173 on; the player calls the API through the proxy of the development
+server. (`npm run dev` alone starts only the API: npm runs the workspaces
+one after the other, and the API never returns.)
 
 ## The theater mode
 
