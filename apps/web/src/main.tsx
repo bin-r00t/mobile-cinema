@@ -5,6 +5,7 @@ import { App } from "./App";
 import { registerServiceWorker } from "./pwa";
 import "./styles/global.css";
 import "./styles/mobile.css";
+import "./styles/desktop.css";
 
 const container = document.getElementById("root");
 if (!container) throw new Error("missing #root element");
