@@ -105,13 +105,13 @@ export function MovieDetail() {
 
   const { movie } = state;
   const metadata = [
-    movie.year !== null ? String(movie.year) : null,
-    formatRuntime(movie.durationMs),
-    formatResolution(movie),
-    movie.videoCodec,
-    movie.container ? movie.container.toUpperCase() : null,
-    formatSize(movie.sizeBytes),
-  ].filter((part): part is string => part !== null);
+    { label: "Year", value: movie.year !== null ? String(movie.year) : null },
+    { label: "Runtime", value: formatRuntime(movie.durationMs) },
+    { label: "Resolution", value: formatResolution(movie) },
+    { label: "Video codec", value: movie.videoCodec },
+    { label: "Container", value: movie.container ? movie.container.toUpperCase() : null },
+    { label: "Size", value: formatSize(movie.sizeBytes) },
+  ].filter((entry): entry is { label: string; value: string } => entry.value !== null);
 
   return (
     <section className="page page-detail">
@@ -127,7 +127,21 @@ export function MovieDetail() {
         <div className="detail-info">
           <h1>{movie.title}</h1>
           {metadata.length > 0 && (
-            <p className="detail-meta muted">{metadata.join(" · ")}</p>
+            <>
+              {/* The one line of the phone; on a desktop the labelled grid
+                  below takes over and this stays off the screen. */}
+              <p className="detail-meta muted">
+                {metadata.map((entry) => entry.value).join(" · ")}
+              </p>
+              <dl className="detail-meta-grid">
+                {metadata.map((entry) => (
+                  <div className="detail-meta-item" key={entry.label}>
+                    <dt className="detail-meta-label">{entry.label}</dt>
+                    <dd className="detail-meta-value">{entry.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </>
           )}
 
           {movie.subtitles.length > 0 && (
