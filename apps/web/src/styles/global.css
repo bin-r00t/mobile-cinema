@@ -63,6 +63,106 @@ body {
   text-decoration: none;
 }
 
+.app-brand:hover {
+  color: var(--accent);
+}
+
+/* The links of the header. On a phone they sit next to the brand; from
+   64rem up desktop.css moves the row to the right of the header. */
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: var(--space-3);
+}
+
+.app-nav-link {
+  color: var(--muted);
+  font-size: var(--font-size-small);
+  text-decoration: none;
+  border-radius: 0.25rem;
+}
+
+.app-nav-link:hover {
+  color: var(--accent);
+}
+
+/* The page the link names — NavLink marks it active. */
+.app-nav-link.active {
+  color: var(--fg);
+}
+
+/* The skip link: off the screen until the Tab key reaches it, then the
+   first thing on the page. */
+.skip-link {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+  transform: translateY(-120%);
+  background: var(--surface);
+  color: var(--fg);
+  padding: var(--space-2) var(--space-3);
+  border-radius: 0 0 var(--space-2) 0;
+  text-decoration: none;
+}
+
+.skip-link:focus-visible {
+  transform: none;
+}
+
+/*
+ * The keyboard and the mouse: a ring around whatever the Tab key reaches,
+ * a response to the pointer, and the hand cursor on the clickable things.
+ * The search box and the sort dropdown keep the outline that library.css
+ * gives them; it looks the same as this one.
+ */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button {
+  cursor: pointer;
+}
+
+.install-button:hover {
+  background: rgb(110 168 254 / 25%);
+}
+
+/* The cards of the library: the poster lightens and the title turns
+   accent while the pointer is over them. */
+.movie-card-link:hover .movie-card-poster,
+.recent-card:hover .recent-card-poster {
+  filter: brightness(1.15);
+}
+
+.movie-card-link:hover .movie-card-title,
+.recent-card:hover .recent-card-title {
+  color: var(--accent);
+}
+
+.play-button:hover {
+  filter: brightness(1.1);
+}
+
+.detail-tab:hover {
+  color: var(--fg);
+}
+
+.script-track:hover {
+  border-color: rgb(110 168 254 / 50%);
+}
+
+/* The plain links of the content, as the way back to the library. */
+.app-main a:not([class]):hover {
+  color: var(--accent);
+}
+
 .app-main {
   flex: 1;
   padding: 1.25rem;
