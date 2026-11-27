@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { Player, type PlayerHandle } from "../components/Player";
@@ -129,6 +135,31 @@ export function Theater() {
     playerRef.current?.play();
   };
 
+  /** The host of the player, for the click on the video and its guards. */
+  const playerHostRef = useRef<HTMLDivElement | null>(null);
+
+  /*
+   * On a desktop a click on the video pauses the movie and starts it
+   * again. The touch screen keeps the swipes of the player: the toggle
+   * answers only from the desktop breakpoint on. The bar of controls, the
+   * help and the subtitle settings speak for themselves; a click on them
+   * is not a click on the movie.
+   */
+  const onPlayerClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!window.matchMedia("(min-width: 64rem)").matches) return;
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      target.closest(".player-controls, .player-help, .subtitle-settings")
+    ) {
+      return;
+    }
+    const video = playerHostRef.current?.querySelector("video");
+    if (!video) return;
+    if (video.paused) playerRef.current?.play();
+    else playerRef.current?.pause();
+  };
+
   if (state.status === "loading") {
     return (
       <section className="theater-page theater-message">
@@ -171,7 +202,11 @@ export function Theater() {
       </div>
       <div className="theater-scrim" aria-hidden="true" />
 
-      <div className={`theater-player${phase === "intro" ? " theater-player-hidden" : ""}`}>
+      <div
+        ref={playerHostRef}
+        onClick={onPlayerClick}
+        className={`theater-player${phase === "intro" ? " theater-player-hidden" : ""}`}
+      >
         <Player
           ref={playerRef}
           startAtMs={startAtMs}
@@ -210,6 +245,18 @@ export function Theater() {
           </Link>
         </div>
       </div>
+
+      {phase === "playing" && (
+        <aside className="theater-panel" aria-label="About this movie">
+          <h1 className="theater-panel-title">{readyMovie.title}</h1>
+          {metadata.length > 0 && (
+            <p className="theater-meta">{metadata.join(" · ")}</p>
+          )}
+          {readyMovie.description && (
+            <p className="theater-description">{readyMovie.description}</p>
+          )}
+        </aside>
+      )}
     </section>
   );
 }
