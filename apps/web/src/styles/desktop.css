@@ -25,4 +25,15 @@
   .page h1 {
     font-size: var(--font-size-title-desktop);
   }
+
+  /* The links of the header stand in a row on the right, and the install
+     button follows them at a fixed step instead of being pushed to the
+     edge by the auto margin it keeps on a phone. */
+  .app-nav {
+    margin-left: auto;
+  }
+
+  .install-button {
+    margin-left: var(--space-4);
+  }
 }

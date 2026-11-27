@@ -1,16 +1,13 @@
-import { NavLink, Outlet } from "react-router-dom";
-import { InstallButton } from "./InstallButton";
+import { Outlet } from "react-router-dom";
+
+import { NavBar } from "./NavBar";
 
 export function Layout() {
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <NavLink to="/" className="app-brand">
-          Mobile Cinema
-        </NavLink>
-        <InstallButton />
-      </header>
-      <main className="app-main">
+      <NavBar />
+      {/* The target of the skip link; tabIndex lets it take the focus. */}
+      <main className="app-main" id="main-content" tabIndex={-1}>
         <Outlet />
       </main>
     </div>
