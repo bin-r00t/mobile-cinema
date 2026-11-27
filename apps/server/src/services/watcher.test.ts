@@ -98,3 +98,70 @@ it("watches a directory that does not exist yet", async () => {
   await waitFor(() => rescans > 0);
   expect(rescans).toBe(1);
 });
+
+it("does not rescan when a file lands in an ignored directory", async () => {
+  root = await mkdtemp(join(tmpdir(), "mc-watch-"));
+  const cache = join(root, ".cache");
+  await mkdir(cache, { recursive: true });
+  let rescans = 0;
+  const watcher = new LibraryWatcher({
+    movieRoot: root,
+    ignoredPaths: [cache],
+    rescan: () => {
+      rescans += 1;
+    },
+    debounceMs: 100,
+  });
+  watchers.push(watcher);
+  await watcher.start();
+
+  // What the server writes into its cache: a converted subtitle.
+  await writeFile(join(cache, "Some.Movie.2020.en.vtt"), "WEBVTT\n");
+  // A rescan would fire one debounce after the write; wait longer than
+  // that and expect silence.
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  expect(rescans).toBe(0);
+});
+
+it("still rescans when a movie is added next to an ignored directory", async () => {
+  root = await mkdtemp(join(tmpdir(), "mc-watch-"));
+  const cache = join(root, ".cache");
+  await mkdir(cache, { recursive: true });
+  let rescans = 0;
+  const watcher = new LibraryWatcher({
+    movieRoot: root,
+    ignoredPaths: [cache],
+    rescan: () => {
+      rescans += 1;
+    },
+    debounceMs: 100,
+  });
+  watchers.push(watcher);
+  await watcher.start();
+
+  await writeFile(join(root, "Some.Movie.2020.mkv"), "x");
+  await waitFor(() => rescans > 0);
+  expect(rescans).toBe(1);
+});
+
+it("keeps watching when an ignored path would hold the movie root", async () => {
+  root = await mkdtemp(join(tmpdir(), "mc-watch-"));
+  let rescans = 0;
+  const watcher = new LibraryWatcher({
+    movieRoot: root,
+    // A cache set to the movie root itself cannot be ignored — every
+    // path of the library lies inside it — so the watcher stays alive
+    // rather than going quiet for ever.
+    ignoredPaths: [root],
+    rescan: () => {
+      rescans += 1;
+    },
+    debounceMs: 100,
+  });
+  watchers.push(watcher);
+  await watcher.start();
+
+  await writeFile(join(root, "Some.Movie.2020.mkv"), "x");
+  await waitFor(() => rescans > 0);
+  expect(rescans).toBe(1);
+});

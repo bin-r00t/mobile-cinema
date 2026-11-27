@@ -1,3 +1,5 @@
+import { dirname } from "node:path";
+
 import Fastify from "fastify";
 import type {
   FastifyError,
@@ -112,6 +114,11 @@ export async function buildApp(config: Config): Promise<FastifyInstance> {
   // or removed. It lives and dies with the app.
   const watcher = new LibraryWatcher({
     movieRoot: config.MOVIE_ROOT,
+    // The scan writes the converted subtitles into the cache, and SQLite
+    // keeps its journal next to the catalog. When either directory lies
+    // inside the movie root, the watcher would see those writes and start
+    // the scan again, for ever — so it is told to leave them out.
+    ignoredPaths: [config.CACHE_DIR, dirname(config.DB_PATH)],
     rescan: () =>
       scanLibrary({
         db,
