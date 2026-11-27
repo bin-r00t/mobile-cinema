@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { Link } from "react-router-dom";
 
 import {
@@ -139,6 +146,55 @@ export function Library() {
 
   const searching = query.trim().length > 0;
 
+  /** The cards of the grid, in the order the grid lays them out. */
+  const gridRef = useRef<HTMLDivElement | null>(null);
+
+  /*
+   * The arrow keys walk the grid: from a card to its neighbour, in the
+   * direction of the key. The columns come from the laid-out grid, so the
+   * walk follows the columns the screen really shows — on a phone as well
+   * as on a desktop.
+   */
+  const onGridKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const cards = Array.from(
+      grid.querySelectorAll<HTMLAnchorElement>(".movie-card-link"),
+    );
+    const index = cards.indexOf(
+      document.activeElement as HTMLAnchorElement,
+    );
+    if (index === -1) return;
+
+    const columns = getComputedStyle(grid)
+      .gridTemplateColumns.split(" ")
+      .filter((width) => width.length > 0).length;
+    if (columns === 0) return;
+
+    let next: number;
+    switch (event.key) {
+      case "ArrowRight":
+        next = index + 1;
+        break;
+      case "ArrowLeft":
+        next = index - 1;
+        break;
+      case "ArrowDown":
+        next = index + columns;
+        break;
+      case "ArrowUp":
+        next = index - columns;
+        break;
+      default:
+        return;
+    }
+    const target = cards[next];
+    if (next < 0 || next >= cards.length || target === undefined) return;
+
+    event.preventDefault();
+    target.focus();
+  };
+
   return (
     <section className="page page-library">
       <div className="library-toolbar">
@@ -173,6 +229,12 @@ export function Library() {
             ))}
           </select>
         </div>
+        {status === "ready" && movies.length > 0 ? (
+          <p className="library-count muted">
+            {total} {total === 1 ? "movie" : "movies"}
+            {searching ? ` matching “${query.trim()}”` : ""}
+          </p>
+        ) : null}
       </div>
 
       {status === "loading" ? <LibrarySkeleton /> : null}
@@ -243,17 +305,11 @@ export function Library() {
       ) : null}
 
       {status === "ready" && movies.length > 0 ? (
-        <>
-          <p className="library-count muted">
-            {total} {total === 1 ? "movie" : "movies"}
-            {searching ? ` matching “${query.trim()}”` : ""}
-          </p>
-          <div className="library-grid">
-            {movies.map((movie) => (
-              <MovieCard key={movie.id} movie={movie} />
-            ))}
-          </div>
-        </>
+        <div className="library-grid" ref={gridRef} onKeyDown={onGridKeyDown}>
+          {movies.map((movie) => (
+            <MovieCard key={movie.id} movie={movie} />
+          ))}
+        </div>
       ) : null}
     </section>
   );

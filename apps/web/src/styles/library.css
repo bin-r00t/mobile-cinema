@@ -45,8 +45,13 @@
   cursor: pointer;
 }
 
+/* The count lives in the toolbar now. Below the desktop breakpoint it
+   still takes a line of its own, and the compensated margins keep the
+   room it has always had: 1.25rem above (the row gap plus half a rem)
+   and 0.75rem below (the toolbar margin minus half a rem). */
 .library-count {
-  margin: 0 0 0.75rem;
+  flex: 0 0 100%;
+  margin: 0.5rem 0 -0.5rem;
   font-size: 0.85rem;
 }
 
@@ -272,4 +277,25 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* The desktop library: from 64rem the tiles stop shrinking into a wall of
+   small posters, the search box keeps a hand's width, and the count of the
+   movies stands at the right end of the toolbar. */
+
+@media (min-width: 64rem) {
+  .library-grid {
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    gap: 1.25rem;
+  }
+
+  .library-search {
+    flex: 0 1 24rem;
+  }
+
+  .library-count {
+    flex: 0 0 auto;
+    margin: 0 0 0 auto;
+    align-self: center;
+  }
 }
