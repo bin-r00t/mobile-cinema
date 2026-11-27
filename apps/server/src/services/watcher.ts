@@ -8,11 +8,20 @@
  * only after the changes have settled, so a bulk copy triggers one scan
  * instead of one per file.
  */
+import { resolve, sep } from "node:path";
+
 import { watch, type FSWatcher } from "chokidar";
 
 export interface LibraryWatcherOptions {
   /** The directory that holds the movies — the equivalent of MOVIE_ROOT. */
   movieRoot: string;
+  /**
+   * Paths whose own changes never start a rescan: the directories the
+   * server writes into — its cache and the folder of its catalog. They
+   * may sit inside the movie root, and when they do, every scan writes
+   * files there that would otherwise start the next scan.
+   */
+  ignoredPaths?: string[];
   /** Called once the changes have settled. May return a promise. */
   rescan: () => void | Promise<void>;
   /** Quiet period before a rescan runs. Defaults to 2 seconds. */
@@ -21,6 +30,11 @@ export interface LibraryWatcherOptions {
 
 /** The default quiet period: long enough for a bulk copy to settle. */
 const DEFAULT_DEBOUNCE_MS = 2000;
+
+/** True when `candidate` is `dir` itself or a file somewhere below it. */
+function isInside(candidate: string, dir: string): boolean {
+  return candidate === dir || candidate.startsWith(dir + sep);
+}
 
 export class LibraryWatcher {
   private watcher: FSWatcher | null = null;
@@ -38,10 +52,24 @@ export class LibraryWatcher {
   async start(): Promise<void> {
     if (this.watcher) return;
 
-    const watcher = watch(this.options.movieRoot, {
+    const movieRoot = resolve(this.options.movieRoot);
+    // An ignored path that holds the movie root — the root itself, or a
+    // directory above it — cannot be ignored: every path the watcher
+    // would ever see lies inside it, so ignoring it would silence the
+    // watcher for the whole library. Such a path is left out and the
+    // root stays watched.
+    const ignoredPaths = (this.options.ignoredPaths ?? [])
+      .map((candidate) => resolve(candidate))
+      .filter((candidate) => !isInside(movieRoot, candidate));
+
+    const watcher = watch(movieRoot, {
       // The initial listing is not a change: it fires one event per file
       // that has always been there and would rescan right after boot.
       ignoreInitial: true,
+      // The files the server writes into its own directories are not
+      // changes of the library: the scan that writes them must not
+      // start the next one.
+      ignored: (path) => ignoredPaths.some((dir) => isInside(resolve(path), dir)),
     });
     watcher.on("all", () => this.scheduleRescan());
     await new Promise<void>((resolve, reject) => {
