@@ -174,6 +174,40 @@ button in the header, when the browser offers it) and keeps its shell
 cached: without a network the library still opens, only the data of the
 server is missing.
 
+## On a desktop
+
+The same app serves a computer: from a window width of 64rem — 1024px at
+the browser's default font size, and more when you have set the fonts
+larger — the layout steps over from the phone to the desktop, without a
+reload.
+
+At that width the header carries the links of the navigation on the right
+(brand, Library, and the movie that is open), and the first press of Tab
+lands on the skip link that jumps over the header to the content. The
+content stands as a centered column capped at 1440px. The library gives
+its tiles at least 12rem, so a wide screen shows a row of large posters
+instead of a wall of small ones, with the count of the movies at the right
+end of the toolbar — and the arrow keys walk the grid from card to card.
+The detail page grows the poster to 320px and puts the facts under labels
+(year, runtime, resolution and the rest) in a grid. The theater stands the
+movie next to a panel of its facts; the bar of controls waits until the
+mouse moves over the movie — or until the Tab key reaches it — and the
+seek bar grows to half a rem, easier to catch with the pointer.
+
+The mouse and the keyboard do this:
+
+- A click on the picture of the theater pauses the movie and starts it
+  again; a click on a control is that control's alone. Below 1024px the
+  clicks belong to the touch gestures of the phone.
+- The keyboard plays, seeks and mutes: `space` toggles the playback, the
+  left and right arrows seek ten seconds, the up and down arrows move the
+  volume, `f` toggles the fullscreen and `m` the mute. `Esc` leaves the
+  theater. The button in the controls lists the shortcuts.
+
+To open the app on a computer, start it as above — the quickstart works
+without a phone, or the compose setup serves it at
+<http://localhost:8080> on every machine of the network.
+
 ## The API
 
 | Method | Path                       | What it does                              |
